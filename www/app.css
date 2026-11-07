@@ -302,13 +302,13 @@ body.t-ivory .zcard.done .counter .ring b{color:#1f7a6f}
 .pcard .pc-at{font-size:14px;color:var(--ink);font-weight:600;margin-inline-start:6px}
 .pc-cd{text-align:center}
 .pc-cd b{font-family:var(--ui);font-size:21px;letter-spacing:1px;direction:ltr;display:block}
-.pnext{text-align:center;padding:18px}
-.pnext h2{margin:4px 0;color:var(--gold-2);font-size:28px}
+.pnext{text-align:center;padding:8px 12px;line-height:1.2}
+.pnext h2{margin:0;color:var(--gold-2);font-size:26px;line-height:1.2}
 .pnext h2 span{font-size:18px;color:var(--ink);font-weight:600}
-.pnext small{color:var(--muted)}
-.pcd{font-family:var(--ui);font-size:44px;font-weight:800;letter-spacing:2px;direction:ltr;color:var(--ink);margin:4px 0 8px}
-.ptable{margin-top:12px;padding:6px 14px}
-.prow{display:flex;justify-content:space-between;align-items:center;padding:6px 4px;line-height:1.3;border-bottom:1px solid rgba(255,255,255,.08);font-size:17px}
+.pnext small{color:var(--muted);display:block;line-height:1.2}
+.pcd{font-family:var(--ui);font-size:44px;font-weight:800;letter-spacing:2px;direction:ltr;color:var(--ink);margin:0;line-height:1.05}
+.ptable{margin-top:8px;padding:2px 14px}
+.prow{display:flex;justify-content:space-between;align-items:center;padding:2px 4px;line-height:1.2;min-height:0;border-bottom:1px solid rgba(255,255,255,.08);font-size:17px}
 body.t-ivory .prow{border-color:rgba(0,0,0,.07)}
 .prow:last-child{border:0}
 .prow b{font-family:var(--ui);direction:ltr}
