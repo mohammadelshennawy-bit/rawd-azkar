@@ -308,7 +308,7 @@ body.t-ivory .zcard.done .counter .ring b{color:#1f7a6f}
 .pnext small{color:var(--muted)}
 .pcd{font-family:var(--ui);font-size:44px;font-weight:800;letter-spacing:2px;direction:ltr;color:var(--ink);margin:4px 0 8px}
 .ptable{margin-top:12px;padding:6px 14px}
-.prow{display:flex;justify-content:space-between;align-items:center;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.08);font-size:17px}
+.prow{display:flex;justify-content:space-between;align-items:center;padding:6px 4px;line-height:1.3;border-bottom:1px solid rgba(255,255,255,.08);font-size:17px}
 body.t-ivory .prow{border-color:rgba(0,0,0,.07)}
 .prow:last-child{border:0}
 .prow b{font-family:var(--ui);direction:ltr}
