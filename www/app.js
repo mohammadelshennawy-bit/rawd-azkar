@@ -766,9 +766,11 @@ function renderSettings() {
       <div class="au-t"><b>إعداد: د. محمد الشناوي</b>
         <a href="mailto:mohammad.elshennawy@gmail.com" dir="ltr">✉ mohammad.elshennawy@gmail.com</a></div>
     </div>
+    <div class="section-title">من تطبيقات مِشْكَاة</div>
+    <a class="glass made-by" href="https://mohammadelshennawy-bit.github.io/Quran-app/download.html" target="_blank" rel="noopener" style="margin-top:0"><img src="img/mushaf-icon.jpg" alt="" style="width:46px;height:46px;border-radius:12px;flex-shrink:0"><span><b>المصحف الشريف ↗</b><small>برواية حفص عن عاصم، بفهرس وبحث وعلامات — يعمل دون إنترنت</small></span></a>
     <div class="section-title">عن التطبيق</div>
     <div class="glass set-group"><div class="set-row" style="display:block;line-height:1.9;font-size:14px;color:var(--muted)">
-      <b style="color:var(--ink)">روض الذكر 1.4.3</b> — ${DATA.length} بابًا و${Object.keys(ITEM).length} نصًّا مشكولًا من:<br>
+      <b style="color:var(--ink)">روض الذكر 1.4.5</b> — ${DATA.length} بابًا و${Object.keys(ITEM).length} نصًّا مشكولًا من:<br>
       • «حصن المسلم» للشيخ سعيد بن وهف القحطاني (مع التخريج)<br>• «من جوامع دعاء النبي ﷺ» (50 دعاءً)<br>• «أفكار ذهبية للعشر الأواخر من رمضان»<br>
       يُنصح بمراجعة النصوص على المصادر المعتمدة عند الحفظ.</div></div>
   </div>`;
