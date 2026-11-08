@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>إحصائيات تطبيقات مشكاة</title>
+<style>
+:root{--bg:#0b1d3f;--card:#12275a;--ink:#f3ead3;--mut:#b9b3a2;--gold:#e9cf8c;--line:#2c4580}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#1a3778,#081433 60%) fixed var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;line-height:1.6}
+main{max-width:760px;margin:0 auto;padding:22px 16px 40px}
+h1{color:var(--gold);font-size:26px;margin:0 0 4px}.sub{color:var(--mut);font-size:14px;margin:0 0 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px}
+.k{color:var(--mut);font-size:13px}.v{font-size:40px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.2}
+h2{font-size:18px;margin:22px 0 8px;color:var(--gold)}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right}th{color:var(--mut);font-weight:600}
+td.n{font-variant-numeric:tabular-nums;font-weight:700;text-align:left}
+.btn{display:inline-block;background:var(--gold);color:#0b1d48;text-decoration:none;font-weight:700;border-radius:999px;padding:10px 18px;margin-top:6px;border:0;font-size:15px;cursor:pointer}
+.note{color:var(--mut);font-size:13px}.err{color:#ffb4a8}
+</style>
+</head>
+<body>
+<main>
+<h1>إحصائيات تطبيقات مشكاة</h1>
+<p class="sub">عدد تحميلات ملف الأندرويد (APK) من GitHub، محدّثة لحظيًا · <span id="when"></span></p>
+<div class="grid" id="tot"></div>
+<div id="tables"></div>
+<h2>الزيارات ومرات فتح التطبيقين</h2>
+<div class="card">
+ <p style="margin:0 0 8px">مرات فتح كل تطبيق مقسّمة حسب الجهاز (أندرويد APK، أندرويد من المتصفح، آيفون، ويندوز)، وزيارات صفحات التحميل والضغط على زر التحميل، والدول — كلها في لوحة GoatCounter:</p>
+ <a class="btn" href="https://mishkat.goatcounter.com" target="_blank" rel="noopener">فتح لوحة الإحصائيات ↗</a>
+ <p class="note">في اللوحة: المسارات التي تبدأ بـ <b dir="ltr">/quran/</b> للمصحف الشريف، و<b dir="ltr">/rawd/</b> لروض الذكر. <b dir="ltr">open</b> = فتح التطبيق، <b dir="ltr">download</b> = زيارة صفحة التحميل، <b dir="ltr">click-apk</b> = الضغط على زر تحميل APK.</p>
+</div>
+<p class="note">تُحسب البيانات فقط حين يكون الجهاز متصلًا بالإنترنت؛ ومرات الفتح دون إنترنت تُرسل عند أول اتصال لاحق. لا يُجمع أي اسم أو رقم أو بيانات شخصية.</p>
+</main>
+<script>
+const OWNER='mohammadelshennawy-bit';
+const APPS=[{repo:'Quran-app',name:'المصحف الشريف'},{repo:'rawd-azkar',name:'روض الذكر'}];
+const fmt=n=>n.toLocaleString('ar-EG-u-nu-latn');
+async function load(){
+ const tot=document.getElementById('tot'),tb=document.getElementById('tables');let sum=0,html='',cards='';
+ for(const a of APPS){
+  try{
+   const r=await fetch(`https://api.github.com/repos/${OWNER}/${a.repo}/releases?per_page=100`,{headers:{Accept:'application/vnd.github+json'}});
+   if(!r.ok)throw new Error(r.status===403?'تم تجاوز حد الطلبات المؤقت من GitHub، أعد المحاولة بعد ساعة':'تعذّر الاتصال بـ GitHub ('+r.status+')');
+   const rel=await r.json();let t=0;const rows=[];
+   rel.forEach(x=>{const apk=(x.assets||[]).filter(s=>/\.apk$/i.test(s.name));const c=apk.reduce((m,s)=>m+s.download_count,0);t+=c;rows.push(`<tr><td>${x.tag_name}</td><td>${(x.published_at||'').slice(0,10)}</td><td class="n">${fmt(c)}</td></tr>`)});
+   sum+=t;cards+=`<div class="card"><div class="k">${a.name} · تحميلات APK</div><div class="v">${fmt(t)}</div><div class="k">${rel.length} إصدار</div></div>`;
+   html+=`<h2>${a.name}</h2><div class="card"><table><thead><tr><th>الإصدار</th><th>تاريخ النشر</th><th style="text-align:left">التحميلات</th></tr></thead><tbody>${rows.join('')||'<tr><td colspan="3">لا توجد إصدارات بعد</td></tr>'}</tbody></table></div>`;
+  }catch(e){cards+=`<div class="card"><div class="k">${a.name}</div><div class="err">${e.message}</div></div>`}
+ }
+ tot.innerHTML=`<div class="card"><div class="k">إجمالي تحميلات APK</div><div class="v">${fmt(sum)}</div><div class="k">للتطبيقين معًا</div></div>`+cards;
+ tb.innerHTML=html;document.getElementById('when').textContent='آخر تحديث: '+new Date().toLocaleString('ar-EG-u-nu-latn');
+}
+load();
+</script>
+</body>
+</html>

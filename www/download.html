@@ -96,5 +96,23 @@ code{direction:ltr;unicode-bidi:embed;white-space:nowrap;background:rgba(255,255
   el.parentNode.insertBefore(el, document.getElementById('android'));
 })();
 </script>
+<script>/* إحصائيات مشكاة عبر GoatCounter — بلا ملفات تعريف ولا بيانات شخصية */
+(function(){try{var APP='rawd',LBL='روض الذكر',PAGE='download',GC='https://mishkat.goatcounter.com/count';
+var ua=navigator.userAgent,h=location.hostname;
+var os=/android/i.test(ua)?'android':(/iphone|ipad|ipod/i.test(ua)||(/macintosh/i.test(ua)&&navigator.maxTouchPoints>1))?'ios':/windows/i.test(ua)?'windows':/mac os/i.test(ua)?'mac':/linux/i.test(ua)?'linux':'other';
+var apk=h==='localhost'||!!window.Capacitor;
+var sa=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+var kind=apk?'apk':sa?'installed':'browser';
+var OSN={android:'أندرويد',ios:'آيفون',windows:'ويندوز',mac:'ماك',linux:'لينكس',other:'جهاز آخر'},KN={apk:'تطبيق APK',installed:'مثبّت من المتصفح',browser:'داخل المتصفح'};
+function send(p,t,ev){var u=GC+'?p='+encodeURIComponent(p)+'&t='+encodeURIComponent(t)+(ev?'&e=true':'')+'&s='+encodeURIComponent(screen.width+','+screen.height+','+(window.devicePixelRatio||1))+'&rnd='+Math.random().toString(36).slice(2);
+ if(!navigator.onLine){try{var q=JSON.parse(localStorage.getItem('mk-q')||'[]');if(q.length<30){q.push([p,t,ev?1:0]);localStorage.setItem('mk-q',JSON.stringify(q))}}catch(e){}return}
+ var i=new Image();i.src=u}
+function flush(){try{var q=JSON.parse(localStorage.getItem('mk-q')||'[]');if(!q.length||!navigator.onLine)return;localStorage.removeItem('mk-q');q.forEach(function(x){send(x[0],x[1],x[2])})}catch(e){}}
+window.mkEvent=function(name,title){send('/'+APP+'/'+name+'/'+os,(title||name)+' — '+LBL+' — '+OSN[os],true)};
+window.addEventListener('online',flush);flush();
+var key='mk-'+APP+'-'+PAGE;
+if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');
+ send('/'+APP+'/'+PAGE+'/'+os+'-'+kind,(PAGE==='open'?'فتح ':'صفحة التحميل — ')+LBL+' — '+OSN[os]+(PAGE==='open'?' ('+KN[kind]+')':''))}
+}catch(e){}})();</script><script>(function(){var a=document.getElementById('apk');if(a)a.addEventListener('click',function(){window.mkEvent&&mkEvent('click-apk','تحميل ملف APK')})})();</script>
 </body>
 </html>
