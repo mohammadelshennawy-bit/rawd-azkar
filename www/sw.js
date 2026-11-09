@@ -1,5 +1,5 @@
 /* روض الذكر — Service Worker: تخزين كامل للعمل دون إنترنت */
-const VERSION = 'rawd-v1.5.0';
+const VERSION = 'rawd-v1.5.1';
 const CORE = ["./", "index.html", "download.html", "app.css", "app.js", "data.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png", "fonts/q1.ttf", "img/mishkat.svg", "img/mushaf-icon.jpg", "fonts/q2.ttf", "fonts/q3.ttf", "fonts/q4.ttf", "bg/beach.jpg", "bg/blossom.jpg", "bg/clouds.jpg", "bg/daisies.jpg", "bg/jasmine.jpg", "bg/lake.jpg", "bg/lantern.jpg", "bg/lavender.jpg", "bg/mosque.jpg", "bg/mountains.jpg", "bg/olive.jpg", "bg/sea-dusk.jpg", "bg/sea-sunset.jpg", "bg/stream.jpg", "bg/tree-sunrise.jpg"];
 const FONT_CACHE = 'rawd-fonts';
 self.addEventListener('install', e => {

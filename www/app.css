@@ -376,3 +376,12 @@ body.t-ivory .prow{border-color:rgba(0,0,0,.07)}
 .sup-cta{display:flex;flex-direction:column;align-items:center;gap:8px;margin:22px auto 6px;text-align:center}
 .sup-cta .sp-logo{width:44px;height:44px}.sup-cta small{color:var(--muted);font-size:12.5px}
 .sup-btn{font-size:16px;padding:11px 28px;border-radius:999px}
+
+/* v1.5.1 — السبحة: مربع الذكر أعرض، هوامش أقل، خط مستقل قابل للتصغير، وعداد أصغر */
+.tasbih{gap:12px}
+.tasbih .tz-verse{line-height:1.4;padding-bottom:6px}
+.tasbih .tz-phrase{width:100%;max-width:100%;box-sizing:border-box;padding:6px 10px 8px;border-radius:16px;line-height:1.55;font-weight:700}
+.tasbih .bead-btn{width:min(50vw,200px)}
+.tasbih .bead-btn .num{font-size:clamp(44px,13vw,62px)}
+.tasbih .bead-btn .of{font-size:13px}
+.tz-fs{display:inline-flex;gap:6px}.tz-fs .btn{min-width:44px;padding-inline:10px}

@@ -24,7 +24,7 @@ try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { S = {}; }
 S.settings = Object.assign({ theme: 'nature', font: 'Q1', fs: 1, vibrate: true, rotate: true, autoNext: true,
   showVirtue: false, showSrc: false, mode: 'page', showStats: true, showPrayer: true, tzAuto: true }, S.settings || {});
 S.fav = S.fav || []; S.counts = S.counts || {}; S.days = S.days || {};
-S.tasbih = Object.assign({ p: 0, total: 0, counts: {}, targets: {} }, S.tasbih || {});
+S.tasbih = Object.assign({ p: 0, total: 0, counts: {}, targets: {}, zfs: 1 }, S.tasbih || {});
 S.pray = Object.assign({ city: 'cairo', method: 'egypt', asr: 1, h24: false, lat: null, lng: null, tz: null, label: '' }, S.pray || {});
 S.lastPos = S.lastPos || {};
 if (S.day !== today()) { S.day = today(); S.counts = {}; }
@@ -560,6 +560,7 @@ const TZ_VERSES = [
 ];
 const tzTarget = k => { const v = S.tasbih.targets[k]; return v === undefined || v === null || v === '' ? TASBIH[k][1] : +v; };
 const tzCount = k => S.tasbih.counts[k] || 0;
+const tzBase = t => t.length <= 22 ? 30 : t.length <= 60 ? 24 : 19;
 function renderTasbih() {
   setBg('jasmine'); $('#topTitle').textContent = 'السبحة الإلكترونية';
   const T = S.tasbih; if (!TASBIH[T.p]) T.p = 0;
@@ -568,7 +569,7 @@ function renderTasbih() {
   const vs = TZ_VERSES[new Date().getDate() % 3];
   view.innerHTML = `<div class="wrap tasbih">
     <div class="tz-verse">${vs[0]} <small>[${vs[1]}]</small></div>
-    <div class="tz-phrase">${esc(TASBIH[k][0])}</div>
+    <div class="tz-phrase" id="tzPhrase" style="font-size:${tzBase(TASBIH[k][0]) * T.zfs}px">${esc(TASBIH[k][0])}</div>
     <button class="bead-btn" id="bead" aria-label="سبّح">
       <svg class="ringbig" viewBox="0 0 300 300"><circle cx="150" cy="150" r="${R}" stroke="rgba(255,255,255,.14)" stroke-width="8" fill="none"/>
       <circle id="tzRing" cx="150" cy="150" r="${R}" stroke="url(#gg)" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - prog)}" style="transition:stroke-dashoffset .25s"/>
@@ -578,6 +579,7 @@ function renderTasbih() {
     <div class="tz-row">
       <button class="btn btn-ghost btn-sm" id="tzReset">↺ تصفير هذا الذكر</button>
       <a class="btn btn-ghost btn-sm" href="#/settings?s=tasbih">⚙ تعديل الأعداد</a>
+      <span class="tz-fs"><button class="btn btn-ghost btn-sm" id="tzFm" aria-label="تصغير خط الذكر">أ−</button><button class="btn btn-ghost btn-sm" id="tzFp" aria-label="تكبير خط الذكر">أ+</button></span>
     </div>
     <div class="tz-total">مجموع تسبيحك: <b id="tzTot">${T.total}</b></div>
     <div class="section-title" style="width:100%">اختر الذكر <a href="#" id="tzResetAll">تصفير الكل</a></div>
@@ -588,6 +590,8 @@ function renderTasbih() {
   </div>`;
   view.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { T.p = +b.dataset.p; save(); renderTasbih(); window.scrollTo(0, 0); view.scrollTop = 0; });
   $('#tzReset').onclick = () => { T.counts[k] = 0; save(); renderTasbih(); };
+  const tzFs = d => { T.zfs = Math.round(Math.max(0.55, Math.min(1.6, T.zfs + d)) * 100) / 100; save(); $('#tzPhrase').style.fontSize = tzBase(TASBIH[k][0]) * T.zfs + 'px'; toast('خط الذكر ' + Math.round(T.zfs * 100) + '%'); };
+  $('#tzFm').onclick = () => tzFs(-0.1); $('#tzFp').onclick = () => tzFs(0.1);
   $('#tzResetAll').onclick = e => { e.preventDefault(); T.counts = {}; save(); renderTasbih(); toast('تم تصفير السبحة'); };
   $('#bead').onclick = () => {
     const c2 = tzCount(k) + 1; T.counts[k] = c2; T.total++;

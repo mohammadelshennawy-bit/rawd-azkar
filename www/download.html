@@ -30,6 +30,12 @@ ol{margin:6px 0 0;padding-inline-start:22px;line-height:1.9;font-size:15.5px}
 .foot{text-align:center;margin-top:26px;font-size:14px;color:#c9d6d3;line-height:1.9}
 .foot a{color:#f2d083}
 code{direction:ltr;unicode-bidi:embed;white-space:nowrap;background:rgba(255,255,255,.08);padding:1px 6px;border-radius:6px}
+.opt{font-size:16.5px;margin:14px 0 6px;color:#f2d083;line-height:1.6}
+.rec{display:inline-block;background:#f2d083;color:#14202a;font-size:12px;font-weight:800;border-radius:999px;padding:1px 10px;margin-left:6px;vertical-align:middle}
+.perks{list-style:none;padding:0;margin:6px 0 10px}.perks li{position:relative;padding-right:24px;margin:4px 0;font-size:14.5px;line-height:1.7}.perks li::before{content:"✓";position:absolute;right:0;color:#6fe0a8;font-weight:800}
+.sep{height:1px;background:rgba(255,255,255,.15);margin:16px 0 4px}
+.btn.ghost{background:transparent;border:1px solid #f2d083;color:#f2d083}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -43,13 +49,23 @@ code{direction:ltr;unicode-bidi:embed;white-space:nowrap;background:rgba(255,255
 
   <section class="card" id="android">
     <h2>أندرويد</h2>
-    <div class="row"><a class="btn gold" id="apk" href="#">⬇ تحميل ملف التطبيق (APK)</a></div>
+    <h3 class="opt"><span class="rec">موصى بها</span> الطريقة الأولى: التثبيت من متصفح Chrome</h3>
+    <ul class="perks"><li><b>يتحدث تلقائيًا</b> كلما فتحته وأنت متصل بالإنترنت — دون تحميل ملفات أو إعادة تثبيت</li><li>بلا رسائل تحذير عند التثبيت</li><li>يعمل دون إنترنت بعد أول فتح، وتظهر أيقونته بين تطبيقاتك</li></ul>
+    <div class="row"><button class="btn gold" id="pwaBtn" hidden>⬇ تثبيت التطبيق الآن</button><a class="btn gold" id="openApp" href="./">افتح التطبيق في Chrome ←</a></div>
+    <ol>
+      <li>افتح الرابط في متصفح <b>Chrome</b>. إن فُتح داخل واتساب أو فيسبوك فاختر «فتح في Chrome».</li>
+      <li>اضغط القائمة <b>⋮</b> أعلى الشاشة.</li>
+      <li>اختر «<b>تثبيت التطبيق</b>» أو «إضافة إلى الشاشة الرئيسية»، ثم «تثبيت».</li>
+    </ol>
+    <div class="sep"></div>
+    <h3 class="opt">الطريقة الثانية: ملف التطبيق (APK)</h3>
+    <p class="note">لمن يفضّل تطبيقًا مستقلًا بملف. <b>لا يتحدث تلقائيًا:</b> عند صدور إصدار أحدث حمّل الملف من جديد وثبّته فوق القديم، وتبقى بياناتك كما هي.</p>
+    <div class="row"><a class="btn ghost" id="apk" href="#">⬇ تحميل ملف التطبيق (APK)</a></div>
     <ol>
       <li>اضغط زر التحميل، ثم افتح الملف <code>rawd-azkar.apk</code> من الإشعارات أو من «التنزيلات».</li>
       <li>إن ظهرت رسالة «غير مسموح بالتثبيت»، اضغط «الإعدادات» وفعّل «السماح من هذا المصدر» ثم ارجع.</li>
       <li>اضغط «تثبيت». إن ظهر تحذير Play Protect فاضغط «مزيد من التفاصيل» ثم «التثبيت على أي حال».</li>
     </ol>
-    <p class="note">طريقة بديلة بلا ملفات: افتح <a href="./" style="color:#f2d083">رابط التطبيق</a> في Chrome ← القائمة ⋮ ← «تثبيت التطبيق».</p>
   </section>
 
   <section class="card" id="ios">
@@ -114,5 +130,7 @@ var key='mk-'+APP+'-'+PAGE;
 if(!sessionStorage.getItem(key)){sessionStorage.setItem(key,'1');
  send('/'+APP+'/'+PAGE+'/'+os+'-'+kind,(PAGE==='open'?'فتح ':'صفحة التحميل — ')+LBL+' — '+OSN[os]+(PAGE==='open'?' ('+KN[kind]+')':''))}
 }catch(e){}})();</script><script>(function(){var a=document.getElementById('apk');if(a)a.addEventListener('click',function(){window.mkEvent&&mkEvent('click-apk','تحميل ملف APK')})})();</script>
+<script>(function(){var ev=null,b=document.getElementById('pwaBtn');window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();ev=e;if(b)b.hidden=false});
+if(b)b.onclick=function(){if(!ev)return;ev.prompt();ev.userChoice.then(function(r){if(r&&r.outcome==='accepted'){b.hidden=true;window.mkEvent&&mkEvent('install-pwa','تثبيت من Chrome')}ev=null})};})();</script>
 </body>
 </html>
