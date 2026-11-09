@@ -24,6 +24,8 @@ jobs:
           echo "VER=$VER" >> "$GITHUB_ENV"
           grep -rl 'class="appver"' www | xargs -r sed -i -E "s#<span class=\"appver\">[^<]*</span>#<span class=\"appver\">$VER</span>#g"
           echo "App version: $VER"; grep -rho '<span class="appver">[^<]*</span>' www | head -1
+          sed -i -E "s/^const VERSION = '[^']*'/const VERSION = 'rawd-$VER'/; s/^const C='[^']*'/const C='mushaf-$VER'/" www/sw.js
+          head -c 160 www/sw.js; echo
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: {path: www}
