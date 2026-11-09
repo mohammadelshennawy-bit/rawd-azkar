@@ -366,3 +366,13 @@ body.t-ivory .prow{border-color:rgba(0,0,0,.07)}
 .sp-qr svg{width:100%;height:100%;display:block}
 .sp-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .sp-qr svg,.sp-qr svg *{stroke:none!important}
+/* v1.5 — السبحة: الذكر المختار أوضح، والآية أصغر ومفصولة بخط */
+.tasbih .tz-verse{font-size:13.5px;line-height:1.7;opacity:.8;padding:0 10px 8px;border-bottom:1px solid var(--gold);max-width:92%;margin:0 auto}
+.tasbih .tz-verse small{font-size:10px}
+.tasbih .tz-phrase{font-size:calc(38px * var(--fs));font-weight:700;line-height:1.5;color:var(--card-text);text-shadow:none;
+ background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:2px solid var(--gold);border-radius:20px;
+ padding:6px 22px 10px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:94%}
+
+.sup-cta{display:flex;flex-direction:column;align-items:center;gap:8px;margin:22px auto 6px;text-align:center}
+.sup-cta .sp-logo{width:44px;height:44px}.sup-cta small{color:var(--muted);font-size:12.5px}
+.sup-btn{font-size:16px;padding:11px 28px;border-radius:999px}

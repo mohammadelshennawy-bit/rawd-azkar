@@ -229,7 +229,7 @@ document.addEventListener('click', e => {
 }, true);
 window.addEventListener('popstate', () => { if (location.hash && location.hash !== CUR) { CUR = location.hash; route(); } });
 let prevDepth = 0;
-const depthOf = r => r === '' || r === 'home' ? 0 : (['sections','tasbih','favorites','settings','search','prayer'].includes(r) ? 1 : 2);
+const depthOf = r => r === '' || r === 'home' ? 0 : (['sections','tasbih','favorites','settings','search','prayer','support'].includes(r) ? 1 : 2);
 function route() {
   const h = decodeURIComponent(CUR.replace(/^#\/?/, ''));
   const [path, query] = h.split('?');
@@ -261,6 +261,7 @@ function route() {
     case 'search': renderSearch(params.get('q') || ''); break;
     case 'settings': renderSettings(); break;
     case 'prayer': renderPrayer(); break;
+    case 'support': renderSupport(); break;
     default: renderHome();
   }
 }
@@ -337,7 +338,7 @@ function renderHome() {
     </section>
     <div class="section-title">أبواب الأذكار والأدعية</div>
     <div class="feature-grid">${DATA.filter(c => !main.includes(c)).map(c => featureCard(c)).join('')}</div>
-    <a class="glass made-by" href="#/settings?s=support"><span class="sp-logo">${LOGO}</span><span><b>من إنتاج مِشْكَاة</b><small>ادعم استمرار التطبيق مجانيًّا بلا إعلانات ←</small></span></a>
+    ${supportBtn()}
     <p style="text-align:center;margin-top:14px"><span class="offline-badge">● يعمل دون إنترنت</span></p>
   </div>`;
   bindCommon(); setupInstall(); startTicker();
@@ -709,6 +710,17 @@ function supportCard() {
       <small>من جوال آخر: امسح الرمز بكاميرا الهاتف أو من تطبيق InstaPay</small></div>
   </div>`;
 }
+function supportBtn() {
+  return `<div class="sup-cta"><span class="sp-logo">${LOGO}</span><small>من إنتاج مِشْكَاة · مجاني وبلا إعلانات</small>
+    <a class="btn btn-gold sup-btn" href="#/support">♡ ادعم التطبيق</a></div>`;
+}
+function renderSupport() {
+  view.innerHTML = `<div class="wrap">${supportCard()}
+    <div class="glass author" style="margin-top:12px"><div class="au-t"><b>إعداد: د. محمد الشناوي</b>
+      <a href="mailto:mohammad.elshennawy@gmail.com" dir="ltr">✉ mohammad.elshennawy@gmail.com</a></div></div></div>`;
+  $('#topTitle').textContent = 'ادعم التطبيق';
+  bindSupport();
+}
 function bindSupport() { const b = $('#copyPay'); if (b) b.onclick = async () => { try { await navigator.clipboard.writeText(INSTAPAY); } catch (e) { const t = document.createElement('textarea'); t.value = INSTAPAY; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); } toast('تم نسخ عنوان InstaPay'); }; }
 function renderSettings() {
   setBg('lake'); $('#topTitle').textContent = 'الإعدادات';
@@ -759,8 +771,6 @@ function renderSettings() {
           : '<li>افتح الرابط في Chrome.</li><li>اضغط ⋮ ثم «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</li><li>سيظهر الأيقون بين تطبيقاتك ويعمل دون إنترنت.</li>'}</ol>
       </div>
     </div>
-    <div class="section-title">ادعم مِشْكَاة</div>
-    ${supportCard()}
     <div class="section-title">مُعِدّ التطبيق</div>
     <div class="glass author">
       <div class="au-t"><b>إعداد: د. محمد الشناوي</b>
@@ -773,6 +783,7 @@ function renderSettings() {
       <b style="color:var(--ink)">روض الذكر <span class="appver">1.4.8</span></b> — ${DATA.length} بابًا و${Object.keys(ITEM).length} نصًّا مشكولًا من:<br>
       • «حصن المسلم» للشيخ سعيد بن وهف القحطاني (مع التخريج)<br>• «من جوامع دعاء النبي ﷺ» (50 دعاءً)<br>• «أفكار ذهبية للعشر الأواخر من رمضان»<br>
       يُنصح بمراجعة النصوص على المصادر المعتمدة عند الحفظ.</div></div>
+    ${supportBtn()}
   </div>`;
   view.querySelectorAll('#themeSeg button').forEach(b => b.onclick = () => { st.theme = b.dataset.v; save(); applySettings(); renderSettings(); });
   view.querySelectorAll('[data-font]').forEach(b => b.onclick = () => { st.font = b.dataset.font; save(); applySettings(); view.querySelectorAll('[data-font]').forEach(x => x.classList.toggle('on', x === b)); });
@@ -781,8 +792,7 @@ function renderSettings() {
   view.querySelectorAll('[data-tz]').forEach(inp => inp.onchange = () => { const v = Math.max(0, Math.floor(+inp.value || 0)); inp.value = v; S.tasbih.targets[inp.dataset.tz] = v; save(); toast('تم الحفظ'); });
   $('#tzDefaults').onclick = () => { S.tasbih.targets = {}; save(); renderSettings(); toast('استُعيدت الأعداد الافتراضية'); };
   $('#resetAll').onclick = () => { S.counts = {}; save(); toast('تم تصفير عدّادات اليوم'); };
-  bindMode(); setupInstall(); bindSupport();
-  if (/s=support/.test(CUR)) setTimeout(() => $('.support').scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
+  bindMode(); setupInstall();
   if (/s=tasbih/.test(CUR)) setTimeout(() => $('#tzSet').scrollIntoView({ behavior: 'smooth' }), 200);
 }
 
