@@ -1,6 +1,7 @@
 name: Deploy web app to GitHub Pages
 on:
   push: {branches: [main]}
+  release: {types: [published]}
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,6 +14,16 @@ jobs:
     environment: {name: github-pages, url: '${{ steps.deployment.outputs.page_url }}'}
     steps:
       - uses: actions/checkout@v4
+      - name: Set app version from the latest release
+        env: {GH_TOKEN: '${{ github.token }}', TAG: '${{ github.event.release.tag_name }}'}
+        run: |
+          VER="$TAG"
+          [ -n "$VER" ] || VER=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)
+          VER="${VER#v}"; VER="${VER#V}"
+          [ -n "$VER" ] || VER=$(node -p "require('./package.json').version")
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          grep -rl 'class="appver"' www | xargs -r sed -i -E "s#<span class=\"appver\">[^<]*</span>#<span class=\"appver\">$VER</span>#g"
+          echo "App version: $VER"; grep -rho '<span class="appver">[^<]*</span>' www | head -1
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: {path: www}
