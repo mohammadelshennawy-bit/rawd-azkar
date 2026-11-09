@@ -720,8 +720,9 @@ function supportBtn() {
 }
 function renderSupport() {
   view.innerHTML = `<div class="wrap">${supportCard()}
-    <div class="glass author" style="margin-top:12px"><div class="au-t"><b>إعداد: د. محمد الشناوي</b>
-      <a href="mailto:mohammad.elshennawy@gmail.com" dir="ltr">✉ mohammad.elshennawy@gmail.com</a></div></div></div>`;
+    <div class="glass author" style="margin-top:12px"><div class="au-t"><b>تواصل مع مِشْكَاة</b>
+      <a href="mailto:mishkatapps@gmail.com" dir="ltr">✉ mishkatapps@gmail.com</a></div></div>
+    <a class="glass made-by" href="https://mishkatapps.github.io/" target="_blank" rel="noopener"><span class="sp-logo">${LOGO}</span><span><b>موقع مِشْكَاة ↗</b><small dir="ltr" style="display:block;text-align:right">mishkatapps.github.io</small></span></a></div>`;
   $('#topTitle').textContent = 'ادعم التطبيق';
   bindSupport();
 }
@@ -775,12 +776,13 @@ function renderSettings() {
           : '<li>افتح الرابط في Chrome.</li><li>اضغط ⋮ ثم «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</li><li>سيظهر الأيقون بين تطبيقاتك ويعمل دون إنترنت.</li>'}</ol>
       </div>
     </div>
-    <div class="section-title">مُعِدّ التطبيق</div>
+    <div class="section-title">تواصل معنا</div>
     <div class="glass author">
-      <div class="au-t"><b>إعداد: د. محمد الشناوي</b>
-        <a href="mailto:mohammad.elshennawy@gmail.com" dir="ltr">✉ mohammad.elshennawy@gmail.com</a></div>
+      <div class="au-t"><b>مِشْكَاة · MISHKAT APPS</b>
+        <a href="mailto:mishkatapps@gmail.com" dir="ltr">✉ mishkatapps@gmail.com</a></div>
     </div>
     <div class="section-title">من تطبيقات مِشْكَاة</div>
+    <a class="glass made-by" style="margin:0 0 10px" href="https://mishkatapps.github.io/" target="_blank" rel="noopener"><span class="sp-logo">${LOGO}</span><span><b>موقع مِشْكَاة ↗</b><small dir="ltr" style="display:block;text-align:right">mishkatapps.github.io</small></span></a>
     <a class="glass made-by" href="https://mohammadelshennawy-bit.github.io/Quran-app/download.html" target="_blank" rel="noopener" style="margin-top:0"><img src="img/mushaf-icon.jpg" alt="" style="width:46px;height:46px;border-radius:12px;flex-shrink:0"><span><b>المصحف الشريف ↗</b><small>برواية حفص عن عاصم، بفهرس وبحث وعلامات — يعمل دون إنترنت</small></span></a>
     <div class="section-title">عن التطبيق</div>
     <div class="glass set-group"><div class="set-row" style="display:block;line-height:1.9;font-size:14px;color:var(--muted)">
