@@ -385,3 +385,19 @@ body.t-ivory .prow{border-color:rgba(0,0,0,.07)}
 .tasbih .bead-btn .num{font-size:clamp(44px,13vw,62px)}
 .tasbih .bead-btn .of{font-size:13px}
 .tz-fs{display:inline-flex;gap:6px}.tz-fs .btn{min-width:44px;padding-inline:10px}
+
+/* v1.6 — مقترح لك الآن */
+.sugg{padding:6px 10px;display:flex;flex-direction:column;gap:2px}
+.sg-row{display:flex;align-items:center;gap:12px;padding:9px 4px;color:var(--ink);text-decoration:none;border-bottom:1px dashed var(--line)}
+.sg-row:last-child{border-bottom:0}
+.sg-row .ic{font-size:24px;width:34px;text-align:center}
+.sg-row .t{flex:1;min-width:0}.sg-row .t b{display:block;font-size:15px}.sg-row .t small{color:var(--muted);font-size:12.5px}
+.sg-row .bar{height:4px;border-radius:4px;background:var(--line);margin-top:5px;overflow:hidden}.sg-row .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-2))}
+.sg-row .st{font-weight:700;color:var(--gold-2);font-size:13px;white-space:nowrap}
+.sg-row.done{opacity:.6}.sg-row.done .st{color:var(--accent)}
+/* زر «آمين» / «تمّ» لما يُقرأ مرة واحدة */
+.big-count.once-big{font-size:28px;font-family:var(--quran);letter-spacing:0}
+.once{display:inline-flex;align-items:center;justify-content:center;min-width:86px;height:40px;padding:0 16px;border-radius:999px;font-family:var(--quran);font-size:19px;font-weight:700;color:#1d2a22;background:linear-gradient(135deg,#f2d083,#c99a45)}
+.once.on{background:linear-gradient(135deg,#7fe0d2,#2f9e90);color:#062a26}
+.counter:has(.once){min-width:0;padding:4px;background:none;border:0}
+.zcard.done .counter:has(.once){background:none}

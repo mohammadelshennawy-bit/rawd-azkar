@@ -21,13 +21,14 @@ const KEY = 'rawd-azkar-v1';
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); };
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { S = {}; }
-S.settings = Object.assign({ theme: 'nature', font: 'Q1', fs: 1, vibrate: true, rotate: true, autoNext: true,
-  showVirtue: false, showSrc: false, mode: 'page', showStats: true, showPrayer: true, tzAuto: true }, S.settings || {});
+S.settings = Object.assign({ theme: 'ivory', font: 'Q1', fs: 1.15, vibrate: true, rotate: true, autoNext: true,
+  showVirtue: false, showSrc: false, mode: 'scroll', showStats: true, showPrayer: true, tzAuto: true }, S.settings || {});
 S.fav = S.fav || []; S.counts = S.counts || {}; S.days = S.days || {};
 S.tasbih = Object.assign({ p: 0, total: 0, counts: {}, targets: {}, zfs: 1 }, S.tasbih || {});
 S.pray = Object.assign({ city: 'cairo', method: 'egypt', asr: 1, h24: false, lat: null, lng: null, tz: null, label: '' }, S.pray || {});
 S.lastPos = S.lastPos || {};
-if (S.day !== today()) { S.day = today(); S.counts = {}; }
+if (S.day !== today()) { S.day = today(); const keep = {}; for (const id in S.counts) if (ITEM[id] && ITEM[id].cat === 'prayer') keep[id] = S.counts[id]; S.counts = keep; }
+S.slots = S.slots || {};
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 save();
 
@@ -231,6 +232,7 @@ window.addEventListener('popstate', () => { if (location.hash && location.hash !
 let prevDepth = 0;
 const depthOf = r => r === '' || r === 'home' ? 0 : (['sections','tasbih','favorites','settings','search','prayer','support'].includes(r) ? 1 : 2);
 function route() {
+  checkPrayerReset();
   const h = decodeURIComponent(CUR.replace(/^#\/?/, ''));
   const [path, query] = h.split('?');
   const parts = path.split('/').filter(Boolean);
@@ -270,7 +272,7 @@ $('#btnBack').onclick = () => goBack();
 $('#btnSearch').onclick = () => nav('#/search');
 const THEMES = ['nature', 'night', 'ivory'], THEME_NAMES = { nature: 'سمة الطبيعة', night: 'السمة الليلية', ivory: 'السمة العاجية' };
 $('#btnTheme').onclick = () => { S.settings.theme = THEMES[(THEMES.indexOf(S.settings.theme) + 1) % 3]; save(); applySettings(); toast(THEME_NAMES[S.settings.theme]); if (CUR.includes('settings')) renderSettings(); };
-function setFs(d) { S.settings.fs = Math.round(Math.max(0.8, Math.min(1.8, S.settings.fs + d)) * 100) / 100; save(); applySettings(); toast('حجم الخط ' + Math.round(S.settings.fs * 100) + '%'); }
+function setFs(d) { S.settings.fs = Math.round(Math.max(0.8, Math.min(1.8, S.settings.fs + d)) * 100) / 100; save(); applySettings(); toast('حجم الخط ' + Math.round(21 * S.settings.fs)); }
 const FONTS = [['Q1', 'النسخ السندي'], ['Q2', 'النسخ السندي العريض'], ['Q4', 'النسخ السعودي'], ['Q3', 'خط المجمع']];
 function setMode(m, id, g) { S.settings.mode = m; save(); toast(m === 'page' ? 'وضع عرض الصفحات' : 'وضع التمرير المتصل'); if (id) nav(m === 'page' ? `#/r/${id}/${S.lastPos[id + (g ? '|' + g : '')] || 0}${qs(g)}` : `#/s/${id}${qs(g)}`, true); }
 
@@ -291,6 +293,44 @@ function hijri() {
   try { return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date()); }
   catch (e) { return ''; }
 }
+/* ---------- أذكار الوقت: اقتراحات مرتبطة بالمواقيت + تصفير أذكار بعد الصلاة ---------- */
+const G_EACH = 'بعد كل صلاة مفروضة', G_FM = 'بعد صلاتي الفجر والمغرب';
+function lastPrayers() {   // آخر صلاة دخل وقتها، وآخر صلاة من الفجر/المغرب
+  const loc = prayLoc(), now = new Date();
+  const [y, m, d] = ymdIn(loc.tz, now), T = prayerTimes(y, m, d, loc);
+  const [y0, m0, d0] = ymdIn(loc.tz, new Date(Date.UTC(y, m - 1, d) - 12 * 3600e3)), Y = prayerTimes(y0, m0, d0, loc);
+  const pick = keys => { for (let i = keys.length - 1; i >= 0; i--) if (T[keys[i]] <= now) return { k: keys[i], id: `${y}-${m}-${d}-${keys[i]}` };
+    const k = keys[keys.length - 1]; return { k, id: `${y0}-${m0}-${d0}-${k}`, at: Y[k] }; };
+  return { each: pick(['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']), fm: pick(['fajr', 'maghrib']) };
+}
+function checkPrayerReset() {   // يُصفّر العدّاد عند دخول وقت الصلاة التالية
+  let lp; try { lp = lastPrayers(); } catch (e) { return false; }
+  let changed = false;
+  [['each', G_EACH], ['fm', G_FM]].forEach(([k, g]) => {
+    if (S.slots[k] === lp[k].id) return;
+    if (S.slots[k] && CAT.prayer) listOf(CAT.prayer, g).forEach(x => { if (S.counts[x.id]) { delete S.counts[x.id]; changed = true; } });
+    S.slots[k] = lp[k].id;
+  });
+  save(); return changed;
+}
+function suggestions() {
+  let k = 'fajr'; try { k = lastPrayers().each.k; } catch (e) {}
+  const P = g => ({ cat: 'prayer', g }), C = c => ({ cat: c });
+  const plan = { fajr: [P(G_FM), C('morning')], dhuhr: [P(G_EACH)], asr: [P(G_EACH), C('evening')],
+                 maghrib: [P(G_FM), C('evening')], isha: [P(G_EACH), C('sleep')] }[k] || [];
+  return plan.filter(x => CAT[x.cat]).map(x => { const c = CAT[x.cat], L = listOf(c, x.g || null), dn = L.filter(isDone).length;
+    return Object.assign(x, { c, d: dn, n: L.length, done: L.length > 0 && dn === L.length }); });
+}
+function suggestCard(list) {
+  if (!list.length) return '';
+  const sorted = list.filter(x => !x.done).concat(list.filter(x => x.done));
+  return `<div class="section-title">مقترح لك الآن</div><div class="glass sugg">${sorted.map(x =>
+    `<a class="sg-row${x.done ? ' done' : ''}" href="#/s/${x.cat}${qs(x.g)}"><span class="ic">${x.c.icon}</span>
+      <span class="t"><b>${esc(x.c.name)}</b>${x.g ? `<small>${esc(x.g)}</small>` : ''}<div class="bar"><i style="width:${x.n ? x.d / x.n * 100 : 0}%"></i></div></span>
+      <span class="st">${x.done ? '✓ أتممته' : `${x.d}/${x.n}`}</span></a>`).join('')}</div>`;
+}
+setInterval(() => { if (checkPrayerReset() && /^#\/?($|\?|home|s\/prayer|r\/prayer)/.test(CUR)) route(); }, 30000);
+
 function prayerCard() {
   if (!S.settings.showPrayer) return '';
   const np = nextPrayer();
@@ -306,18 +346,21 @@ function renderHome() {
   const catsDone = DATA.filter(c => catProgress(c).p === 1).length;
   const dod = dhikrOfDay();
   const main = ['morning', 'evening', 'prayer', 'jawami', 'ramadan', 'sleep'].map(id => CAT[id]);
+  const sg = suggestions(), first = sg.find(x => !x.done);
+  const cta = first ? { h: `#/s/${first.cat}${qs(first.g)}`, t: 'ابدأ ' + first.c.name + (first.g ? ' · ' + first.g : '') } : (sg.length ? { h: '#/s/jawami', t: '✓ أتممت أذكار هذا الوقت — من جوامع الدعاء' } : { h: `#/s/${pr.key}`, t: 'ابدأ ' + CAT[pr.key].name });
   view.innerHTML = `<div class="wrap stagger">
     <section class="glass hero">
       <div class="greet">${esc(pr.g)}</div>
       <h1>أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ</h1>
       <div class="dates"><span>📅 <b>${esc(greg)}</b></span>${hijri() ? `<span>🌙 <b>${esc(hijri())}</b></span>` : ''}</div>
       <div class="hero-cta">
-        <a class="btn btn-gold" href="#/s/${pr.key}">ابدأ ${esc(CAT[pr.key].name)} ←</a>
+        <a class="btn btn-gold" href="${cta.h}">${esc(cta.t)} ←</a>
         <a class="btn btn-ghost" href="#/tasbih">📿 السبحة</a>
         <button class="btn btn-ghost" id="installBtn" hidden>⬇︎ تثبيت التطبيق</button>
       </div>
     </section>
     ${prayerCard()}
+    ${suggestCard(sg)}
     ${resumeCard()}
     ${S.settings.showStats ? `<div class="stats">
       <div class="glass stat"><b>${doneToday}</b><span>ذكر أتممته اليوم</span></div>
@@ -382,8 +425,12 @@ function extraHtml(it, force) {
   const v = (force || S.settings.showVirtue) && it.v, s = (force || S.settings.showSrc) && it.s;
   return (v ? `<div class="zvirtue">${esc(it.v)}</div>` : '') + (s ? `<div class="zsrc">📖 ${esc(it.s)}</div>` : '');
 }
+/* الأبواب التي كلها أدعية: زر «آمين» بدل العدّاد، وبقية ما يُقرأ مرة واحدة: «تمّ» */
+const DUA_CATS = ['jawami', 'quran', 'relief'];
+const onceLabel = it => DUA_CATS.includes(it.cat) ? 'آمين' : 'تمّ';
 function ringHtml(it, size = 54) {
   const t = targetOf(it), c = Math.min(countOf(it.id), t), done = c >= t, r = size / 2 - 4, C = 2 * Math.PI * r;
+  if (t === 1) return `<span class="once ${done ? 'on' : ''}">${done ? '✓ ' + onceLabel(it) : onceLabel(it)}</span>`;
   return `<span class="ring" style="width:${size}px;height:${size}px"><svg viewBox="0 0 ${size} ${size}"><circle class="tr" cx="${size/2}" cy="${size/2}" r="${r}"/><circle class="pr" cx="${size/2}" cy="${size/2}" r="${r}" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - c / t)}"/></svg><b>${done ? '✓' : t - c}</b></span>`;
 }
 function zcard(it, n, opts = {}) {
@@ -512,7 +559,7 @@ function renderReader(id, i, occ) {
     </article>
     <div class="reader-nav">
       <button class="rnav" id="rPrev" ${i === 0 ? 'disabled' : ''} aria-label="السابق"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
-      <button class="big-count ${done ? 'done' : ''}" id="rCount">${done ? '✓' : t - cnt}</button>
+      <button class="big-count ${done ? 'done' : ''} ${t === 1 ? 'once-big' : ''}" id="rCount">${t === 1 ? (done ? '✓ ' + onceLabel(it) : onceLabel(it)) : (done ? '✓' : t - cnt)}</button>
       <button class="rnav" id="rNext" ${i === c.items.length - 1 ? 'disabled' : ''} aria-label="التالي"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
     </div></div>`;
   const go = k => { if (k >= 0 && k < c.items.length) { replaceNav(`#/r/${id}/${k}${Q}`); renderReader(id, k, g); view.scrollTop = 0; } };
@@ -524,7 +571,7 @@ function renderReader(id, i, occ) {
     if (isDone(it)) { if (i < c.items.length - 1) go(i + 1); else { celebrate('🌟'); toast('أتممت ' + c.name); } return; }
     const fin = bump(it);
     const b = $('#rCount'); const left = targetOf(it) - countOf(it.id);
-    b.textContent = fin ? '✓' : left; b.classList.toggle('done', fin); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
+    b.textContent = targetOf(it) === 1 ? '✓ ' + onceLabel(it) : (fin ? '✓' : left); b.classList.toggle('done', fin); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
     if (fin && S.settings.autoNext && i < c.items.length - 1) setTimeout(() => go(i + 1), 450);
   };
   const card = $('#rcard'); let sx = 0, sy = 0;
@@ -737,7 +784,7 @@ function renderSettings() {
     <div class="glass set-group">
       <div class="set-row"><div class="t"><b>السمة</b><small>طبيعة زجاجية، ليلية، أو عاجية فاتحة</small></div>
         <div class="seg" id="themeSeg">${[['nature', 'طبيعة'], ['night', 'ليلي'], ['ivory', 'عاجي']].map(([v, l]) => `<button class="${st.theme === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div></div>
-      <div class="set-row" style="display:block"><div class="t"><b>حجم خط الأذكار</b><small>يُطبّق على جميع النصوص المشكولة</small></div>
+      <div class="set-row" style="display:block"><div class="t"><b>حجم خط الأذكار: <span id="fsVal">${Math.round(21 * st.fs)}</span></b><small>يُطبّق على جميع النصوص المشكولة</small></div>
         <input type="range" min="0.8" max="1.8" step="0.05" value="${st.fs}" id="fsRange">
         <div class="fs-preview">سُبْحَانَ اللَّهِ وَبِحَمْدِهِ، سُبْحَانَ اللَّهِ الْعَظِيمِ</div></div>
       <div class="set-row" style="display:block"><div class="t"><b>نوع خط الأذكار</b><small>خطوط مجمع الملك فهد مضمَّنة في التطبيق وتعمل دون إنترنت</small></div>
@@ -793,7 +840,7 @@ function renderSettings() {
   </div>`;
   view.querySelectorAll('#themeSeg button').forEach(b => b.onclick = () => { st.theme = b.dataset.v; save(); applySettings(); renderSettings(); });
   view.querySelectorAll('[data-font]').forEach(b => b.onclick = () => { st.font = b.dataset.font; save(); applySettings(); view.querySelectorAll('[data-font]').forEach(x => x.classList.toggle('on', x === b)); });
-  $('#fsRange').oninput = e => { st.fs = +e.target.value; applySettings(); save(); };
+  $('#fsRange').oninput = e => { st.fs = +e.target.value; applySettings(); save(); $('#fsVal').textContent = Math.round(21 * st.fs); };
   view.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { st[b.dataset.sw] = !st[b.dataset.sw]; b.classList.toggle('on', st[b.dataset.sw]); save(); });
   view.querySelectorAll('[data-tz]').forEach(inp => inp.onchange = () => { const v = Math.max(0, Math.floor(+inp.value || 0)); inp.value = v; S.tasbih.targets[inp.dataset.tz] = v; save(); toast('تم الحفظ'); });
   $('#tzDefaults').onclick = () => { S.tasbih.targets = {}; save(); renderSettings(); toast('استُعيدت الأعداد الافتراضية'); };
