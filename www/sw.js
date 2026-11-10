@@ -3,7 +3,7 @@ const VERSION = 'rawd-v1.6.0';
 const CORE = ["./", "index.html", "download.html", "app.css", "app.js", "data.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png", "fonts/q1.ttf", "img/mishkat.svg", "img/mushaf-icon.jpg", "fonts/q2.ttf", "fonts/q3.ttf", "fonts/q4.ttf", "bg/beach.jpg", "bg/blossom.jpg", "bg/clouds.jpg", "bg/daisies.jpg", "bg/jasmine.jpg", "bg/lake.jpg", "bg/lantern.jpg", "bg/lavender.jpg", "bg/mosque.jpg", "bg/mountains.jpg", "bg/olive.jpg", "bg/sea-dusk.jpg", "bg/sea-sunset.jpg", "bg/stream.jpg", "bg/tree-sunrise.jpg"];
 const FONT_CACHE = 'rawd-fonts';
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));   // cache:'reload' يتجاوز ذاكرة المتصفح فيجلب أحدث نسخة
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION && k !== FONT_CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
