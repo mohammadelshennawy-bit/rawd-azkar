@@ -1,6 +1,6 @@
 /* روض الذكر — Service Worker: تخزين كامل للعمل دون إنترنت */
-const VERSION = 'rawd-v1.7.0';
-const CORE = ["./", "index.html", "download.html", "app.css", "app.js", "data.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png", "fonts/q1.ttf", "img/mishkat.svg", "img/mushaf-icon.jpg", "fonts/q2.ttf", "fonts/q3.ttf", "fonts/q4.ttf", "bg/beach.jpg", "bg/blossom.jpg", "bg/clouds.jpg", "bg/daisies.jpg", "bg/jasmine.jpg", "bg/lake.jpg", "bg/lantern.jpg", "bg/lavender.jpg", "bg/mosque.jpg", "bg/mountains.jpg", "bg/olive.jpg", "bg/sea-dusk.jpg", "bg/sea-sunset.jpg", "bg/stream.jpg", "bg/tree-sunrise.jpg"];
+const VERSION = 'rawd-v1.8.0';
+const CORE = ["./", "index.html", "download.html", "app.css", "app.js", "data.js", "config.js", "i18n.js", "en.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png", "fonts/q1.ttf", "img/mishkat.svg", "img/mushaf-icon.jpg", "fonts/q2.ttf", "fonts/q3.ttf", "fonts/q4.ttf", "bg/beach.jpg", "bg/blossom.jpg", "bg/clouds.jpg", "bg/daisies.jpg", "bg/jasmine.jpg", "bg/lake.jpg", "bg/lantern.jpg", "bg/lavender.jpg", "bg/mosque.jpg", "bg/mountains.jpg", "bg/olive.jpg", "bg/sea-dusk.jpg", "bg/sea-sunset.jpg", "bg/stream.jpg", "bg/tree-sunrise.jpg"];
 const FONT_CACHE = 'rawd-fonts';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));   // cache:'reload' يتجاوز ذاكرة المتصفح فيجلب أحدث نسخة
@@ -21,6 +21,12 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin !== location.origin) return;
+  // ملف الإعدادات: من الشبكة أولًا ليُطبَّق أي تعديل فورًا، ومن الذاكرة دون إنترنت
+  if (url.pathname.endsWith('/config.js')) {
+    e.respondWith(fetch(new Request(req, { cache: 'reload' })).then(res => { if (res.ok) { const cp = res.clone(); caches.open(VERSION).then(c => c.put('config.js', cp)); } return res; })
+      .catch(() => caches.match('config.js')));
+    return;
+  }
   if (req.mode === 'navigate') {
     e.respondWith(caches.match('index.html').then(hit => hit || fetch(req)).catch(() => caches.match('index.html')));
     return;

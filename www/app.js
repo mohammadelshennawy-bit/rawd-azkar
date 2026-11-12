@@ -43,7 +43,17 @@ function targetOf(it) {
 }
 const countOf = id => S.counts[id] || 0;
 const groupOf = (c, occ) => c.groups ? (c.groups.includes(occ) ? occ : c.groups[0]) : null;
-const listOf = (c, g) => g ? c.items.filter(x => x.o === g) : c.items;
+/* اللغة: الترجمة الكاملة تُضاف في i18n.js؛ tr() تعيد النص العربي إن لم توجد ترجمة */
+const EN = !!(window.I18N && I18N.lang === 'en');
+const LOC_G = EN ? 'en-GB-u-nu-latn' : 'ar-EG-u-nu-latn', LOC_H = EN ? 'en-u-ca-islamic-umalqura-nu-latn' : 'ar-SA-u-ca-islamic-umalqura-nu-latn';
+const tr = s => (window.I18N && window.I18N.tr) ? window.I18N.tr(s) : s;
+S.order = S.order || {};   // ترتيب المستخدم للأذكار داخل كل باب: { catId: [ids] }
+function ordered(c, arr) {
+  const o = S.order[c.id]; if (!o || !o.length) return arr;
+  const pos = {}; o.forEach((id, i) => pos[id] = i);
+  return arr.slice().sort((a, b) => (pos[a.id] ?? 1e6 + a.idx) - (pos[b.id] ?? 1e6 + b.idx));
+}
+const listOf = (c, g) => ordered(c, g ? c.items.filter(x => x.o === g) : c.items);
 const qs = g => g ? '?o=' + encodeURIComponent(g) : '';
 const isDone = it => countOf(it.id) >= targetOf(it);
 function catProgress(c) { const d = c.items.filter(isDone).length; return { d, n: c.items.length, p: c.items.length ? d / c.items.length : 0 }; }
@@ -184,7 +194,7 @@ function prayerTimes(y, m, d, loc) {
 }
 function fmtTime(date, loc) {
   const o = { hour: 'numeric', minute: '2-digit', hour12: !S.pray.h24, timeZone: loc.tz, numberingSystem: 'latn' };
-  try { return new Intl.DateTimeFormat('ar-EG-u-nu-latn', o).format(date); }
+  try { return new Intl.DateTimeFormat(LOC_G, o).format(date); }
   catch (e) { return pad(date.getHours()) + ':' + pad(date.getMinutes()); }
 }
 function nextPrayer() {
@@ -231,7 +241,7 @@ document.addEventListener('click', e => {
 }, true);
 window.addEventListener('popstate', () => { if (location.hash && location.hash !== CUR) { CUR = location.hash; route(); } });
 let prevDepth = 0;
-const depthOf = r => r === '' || r === 'home' ? 0 : (['sections','tasbih','favorites','settings','search','prayer','support'].includes(r) ? 1 : 2);
+const depthOf = r => r === '' || r === 'home' ? 0 : (['sections','tasbih','favorites','settings','search','prayer','support','rate'].includes(r) ? 1 : 2);
 function route() {
   checkPrayerReset();
   const h = decodeURIComponent(CUR.replace(/^#\/?/, ''));
@@ -265,6 +275,7 @@ function route() {
     case 'settings': renderSettings(); break;
     case 'prayer': renderPrayer(); break;
     case 'support': renderSupport(); break;
+    case 'rate': renderRate(); break;
     default: renderHome();
   }
 }
@@ -291,7 +302,7 @@ function dhikrOfDay() {
   return pool[seed % pool.length];
 }
 function hijri() {
-  try { return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date()); }
+  try { return new Intl.DateTimeFormat(LOC_H, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date()); }
   catch (e) { return ''; }
 }
 /* ---------- تنبيهات الأذكار: الصباح بعد الفجر، المساء بعد العصر، النوم في وقت يختاره المستخدم ---------- */
@@ -383,6 +394,35 @@ function suggestCard(list) {
 }
 setInterval(() => { if (checkPrayerReset() && /^#\/?($|\?|home|s\/prayer|r\/prayer)/.test(CUR)) route(); }, 30000);
 
+/* ---------- تنبيه «يتوفر إصدار أحدث» ---------- */
+// الرقم يُكتب تلقائيًا من وسم الإصدار عند النشر (نفس نمط appver)
+const APP_VER = '<span class="appver">1.7.0</span>'.replace(/<[^>]+>/g, '').trim();
+const verCmp = (a, b) => { const x = String(a).replace(/^v/i, '').split('.').map(Number), y = String(b).replace(/^v/i, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
+S.upd = S.upd || {};
+function checkUpdate() {
+  if (!navigator.onLine || (S.upd.at && Date.now() - S.upd.at < 6 * 3600e3)) return;
+  fetch('https://api.github.com/repos/mohammadelshennawy-bit/rawd-azkar/releases/latest').then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !j.tag_name) return;
+    S.upd = Object.assign(S.upd, { at: Date.now(), latest: j.tag_name.replace(/^v/i, '') }); save();
+    if (/^#\/?($|\?|home)/.test(CUR) && updateAvail()) route();
+  }).catch(() => {});
+}
+const updateAvail = () => S.upd.latest && verCmp(S.upd.latest, APP_VER) > 0 && S.upd.hide !== S.upd.latest;
+function updBanner() {
+  if (!updateAvail()) return '';
+  const native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  return `<section class="glass upd-card"><span class="ic">🎉</span><div class="t"><b>${tr('يتوفر إصدار جديد')} ${esc(S.upd.latest)}</b>
+    <small>${tr('إصدارك الحالي')} ${esc(APP_VER)}${native ? ' — ' + t('حمّل ملف التحديث وثبّته فوق التطبيق الحالي') : ''}</small></div>
+    <div class="b">${native ? `<a class="btn btn-gold" href="https://mohammadelshennawy-bit.github.io/rawd-azkar/download.html" target="_blank" rel="noopener">${tr('تحديث')}</a>`
+      : `<button class="btn btn-gold" id="updNow">${tr('تحديث')}</button>`}<button class="btn btn-ghost" id="updLater" aria-label="${tr('لاحقًا')}">✕</button></div></section>`;
+}
+function bindUpdate() {
+  const n = $('#updNow'); if (n) n.onclick = async () => { try { const r = await navigator.serviceWorker.getRegistration(); if (r) await r.update(); } catch (e) {} location.reload(); };
+  const l = $('#updLater'); if (l) l.onclick = () => { S.upd.hide = S.upd.latest; save(); route(); };
+}
+setTimeout(checkUpdate, 3000);
+
 function prayerCard() {
   if (!S.settings.showPrayer) return '';
   const np = nextPrayer();
@@ -393,7 +433,7 @@ function prayerCard() {
 function renderHome() {
   setBg(timeBg());
   const pr = period();
-  const greg = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+  const greg = new Intl.DateTimeFormat(LOC_G, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
   const doneToday = Object.keys(S.counts).filter(id => ITEM[id] && isDone(ITEM[id])).length;
   const catsDone = DATA.filter(c => catProgress(c).p === 1).length;
   const dod = dhikrOfDay();
@@ -403,7 +443,7 @@ function renderHome() {
   view.innerHTML = `<div class="wrap stagger">
     <section class="glass hero">
       <div class="greet">${esc(pr.g)}</div>
-      <h1>أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ</h1>
+      <h1>أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ</h1>${EN ? `<p class="hero-tr">“Verily, in the remembrance of Allah do hearts find rest.” [Ar-Ra'd 13:28]</p>` : ''}
       <div class="dates"><span>📅 <b>${esc(greg)}</b></span>${hijri() ? `<span>🌙 <b>${esc(hijri())}</b></span>` : ''}</div>
       <div class="hero-cta">
         <a class="btn btn-gold" href="${cta.h}">${esc(cta.t)} ←</a>
@@ -411,6 +451,7 @@ function renderHome() {
         <button class="btn btn-ghost" id="installBtn" hidden>⬇︎ تثبيت التطبيق</button>
       </div>
     </section>
+    ${updBanner()}
     ${prayerCard()}
     ${suggestCard(sg)}
     ${resumeCard()}
@@ -424,8 +465,8 @@ function renderHome() {
     <div class="section-title">ذكر اليوم <a href="#/favorites">♥ المفضلة</a></div>
     <section class="glass dod">
       <span class="lbl">✦ ${esc(CAT[dod.cat].name)}</span>
-      <div class="txt">${esc(clean(dod.t))}</div>
-      <div class="src">${esc(dod.s)}</div>
+      <div class="txt">${esc(clean(dod.t))}</div>${xlHtml(dod)}
+      <div class="src">${esc(EN ? I18N.src(dod.s) : dod.s)}</div>
       <div class="hero-cta" style="justify-content:center">
         <button class="btn btn-ghost" data-fav="${dod.id}">${S.fav.includes(dod.id) ? '♥ في المفضلة' : '♡ أضف للمفضلة'}</button>
         <button class="btn btn-ghost" data-share="${dod.id}">↗ مشاركة</button>
@@ -436,7 +477,7 @@ function renderHome() {
     ${supportBtn()}
     <p style="text-align:center;margin-top:14px"><span class="offline-badge">● يعمل دون إنترنت</span></p>
   </div>`;
-  bindCommon(); setupInstall(); startTicker();
+  bindCommon(); setupInstall(); startTicker(); bindUpdate();
 }
 function resumeCard() {
   const L = S.last; if (!L || !CAT[L.cat]) return '';
@@ -474,9 +515,17 @@ const ICON = {
   share: '<svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
   info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>'
 };
+/* اللغات: النطق والترجمة تحت النص العربي */
+const XL = it => EN && window.I18N ? I18N.item(it) : null;
+function xlHtml(it) {
+  const x = XL(it); if (!x) return '';
+  return `<div class="xl" dir="ltr">${x.tl ? `<div class="xl-tl">${esc(x.tl)}</div>` : ''}${x.en ? `<div class="xl-en">${esc(x.en)}</div>` : ''}</div>`;
+}
 function extraHtml(it, force) {
+  const x = XL(it);
   const v = (force || S.settings.showVirtue) && it.v, s = (force || S.settings.showSrc) && it.s;
-  return (v ? `<div class="zvirtue">${esc(it.v)}</div>` : '') + (s ? `<div class="zsrc">📖 ${esc(it.s)}</div>` : '');
+  const vt = x && x.v ? x.v : it.v, st = EN ? I18N.src(it.s) : it.s;
+  return (v ? `<div class="zvirtue"${x && x.v ? ' dir="ltr"' : ''}>${esc(vt)}</div>` : '') + (s ? `<div class="zsrc"${EN ? ' dir="ltr"' : ''}>📖 ${esc(st)}</div>` : '');
 }
 /* الأبواب التي كلها أدعية: زر «آمين» بدل العدّاد، وبقية ما يُقرأ مرة واحدة: «تمّ» */
 const DUA_CATS = ['jawami', 'quran', 'relief'];
@@ -494,7 +543,7 @@ function zcard(it, n, opts = {}) {
   const hasExtra = it.v || it.s;
   return `<article class="glass zcard ${done ? 'done' : ''}" id="z-${it.id}" data-id="${it.id}">
     ${showOcc || opts.showCat ? `<div class="zmeta">${showOcc ? `<span class="zocc">${esc(it.o)}</span>` : ''}${opts.showCat ? `<a class="zcat" href="#/s/${it.cat}">${esc(CAT[it.cat].name)}</a>` : ''}</div>` : ''}
-    <div class="zbody">${opts.hl ? opts.hl : esc(clean(it.t))}</div>
+    <div class="zbody">${opts.hl ? opts.hl : esc(clean(it.t))}</div>${xlHtml(it)}
     <div class="zextra">${extraHtml(it)}</div>
     <div class="zfoot">
       <span class="zno">${n}</span>
@@ -512,22 +561,49 @@ function renderSection(id, occ) {
   if (c.groups) occ = groupOf(c, occ);
   const occs = c.groups || [...new Set(c.items.map(x => x.o).filter(Boolean))];
   const useChips = occs.length > 1 && occs.length < c.items.length;
-  const list = c.items.filter(x => !occ || x.o === occ);
+  const list = ordered(c, c.items.filter(x => !occ || x.o === occ)), custom = !!(S.order[id] && S.order[id].length);
   const p = c.groups ? catProgress({ items: list }) : catProgress(c);
   view.innerHTML = `<div class="wrap">
     <section class="glass sec-head"><h2><span>${c.icon}</span>${esc(c.name)}</h2>
       <p>${esc(c.desc)}<br><small>المصدر: ${esc(c.src)}</small></p>
       <div class="sec-tools">${modeSwitch(id, c.groups ? occ : '')}
         <button class="btn btn-ghost btn-sm" id="resetSec">↺ إعادة العدّ</button>
+        <button class="btn btn-ghost btn-sm" id="orderSec">↕ ترتيب الأذكار</button>
         <span class="ring-mini" id="secProg">${p.d} / ${p.n} مكتمل</span>
       </div></section>
     ${useChips && id !== 'morning' && id !== 'evening' ? `<div class="chips ${c.groups ? 'groups' : ''}">
       ${c.groups ? '' : `<a class="chip ${!occ ? 'on' : ''}" href="#/s/${id}">الكل</a>`}
       ${occs.map(o => `<a class="chip ${o === occ ? 'on' : ''}" href="#/s/${id}?o=${encodeURIComponent(o)}">${esc(o)}</a>`).join('')}</div>` : ''}
-    <div class="stagger">${list.map((it, k) => zcard(it, c.groups ? k + 1 : it.idx + 1, { hideOcc: id === 'morning' || id === 'evening' || !!c.groups })).join('')}</div>
+    <div class="stagger">${list.map((it, k) => zcard(it, c.groups || custom ? k + 1 : it.idx + 1, { hideOcc: id === 'morning' || id === 'evening' || !!c.groups })).join('')}</div>
   </div>`;
+  $('#orderSec').onclick = () => renderOrder(id, occ);
   $('#resetSec').onclick = () => { c.items.forEach(x => delete S.counts[x.id]); save(); renderSection(id, occ); toast('أُعيد ضبط العدّاد'); };
   bindCommon(); bindMode();
+}
+/* ترتيب الأذكار داخل الباب */
+function renderOrder(id, occ) {
+  const c = CAT[id], list = ordered(c, c.items.filter(x => !occ || x.o === occ));
+  const first = t => clean(t).split('\n')[0].slice(0, 90);
+  view.innerHTML = `<div class="wrap">
+    <section class="glass sec-head"><h2><span>↕</span>${tr('ترتيب الأذكار')} — ${esc(c.name)}${occ ? ' · ' + esc(occ) : ''}</h2>
+      <p>${tr('رتّب الأذكار كما تحب باستخدام الأسهم، ويُحفظ الترتيب تلقائيًا ويُطبَّق في كل طرق العرض.')}</p>
+      <div class="sec-tools"><a class="btn btn-gold btn-sm" href="#/s/${id}${qs(occ)}">✓ ${tr('تم')}</a>
+        <button class="btn btn-ghost btn-sm" id="ordReset">↺ ${tr('الترتيب الأصلي')}</button></div></section>
+    <div class="ord-list">${list.map((it, k) => `<div class="glass ord-row" data-id="${it.id}"><span class="n">${k + 1}</span>
+      <span class="t">${esc(first(it.t))}${clean(it.t).length > 90 || clean(it.t).includes('\n') ? '…' : ''}</span>
+      <span class="b"><button data-mv="top" aria-label="${tr('إلى الأعلى')}" ${k === 0 ? 'disabled' : ''}>⤒</button><button data-mv="-1" aria-label="${tr('لأعلى')}" ${k === 0 ? 'disabled' : ''}>▲</button><button data-mv="1" aria-label="${tr('لأسفل')}" ${k === list.length - 1 ? 'disabled' : ''}>▼</button></span></div>`).join('')}</div>
+  </div>`;
+  view.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => {
+    const ids = list.map(x => x.id), i = ids.indexOf(b.closest('.ord-row').dataset.id), mv = b.dataset.mv;
+    const j = mv === 'top' ? 0 : i + +mv; if (j < 0 || j >= ids.length) return;
+    const [x] = ids.splice(i, 1); ids.splice(j, 0, x);
+    // ضع العناصر المعاد ترتيبها في مواضعها داخل ترتيب الباب الكامل
+    const full = ordered(c, c.items).map(y => y.id), slots = full.map((y, k2) => ids.includes(y) ? k2 : -1).filter(k2 => k2 >= 0);
+    slots.forEach((sl, n) => full[sl] = ids[n]);
+    S.order[id] = full; save(); renderOrder(id, occ);
+    const row = view.querySelector(`.ord-row[data-id="${x}"]`); if (row) { row.classList.add('moved'); row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  });
+  $('#ordReset').onclick = () => { delete S.order[id]; save(); renderOrder(id, occ); toast(tr('استُعيد الترتيب الأصلي')); };
 }
 function updateCard(it) {
   const el = document.getElementById('z-' + it.id);
@@ -572,7 +648,11 @@ function toggleFav(id, btn) {
   save();
   if (btn) { if (btn.classList.contains('zact')) btn.classList.toggle('fav-on', S.fav.includes(id)); else btn.textContent = S.fav.includes(id) ? '♥ في المفضلة' : '♡ أضف للمفضلة'; }
 }
-function itemShareText(it) { const t = targetOf(it); return `${clean(it.t)}\n${t > 1 ? '(' + t + ' مرات)\n' : ''}${it.s ? '— ' + it.s : ''}\n\nمن تطبيق «روض الذكر»`; }
+function itemShareText(it) {
+  const t = targetOf(it), x = XL(it);
+  if (x) return `${clean(it.t)}\n\n${x.tl ? x.tl + '\n\n' : ''}${x.en || ''}\n${t > 1 ? '(' + t + ' times)\n' : ''}${it.s ? '— ' + I18N.src(it.s) : ''}\n\nFrom the “Rawd adh-Dhikr” app`;
+  return `${clean(it.t)}\n${t > 1 ? '(' + t + ' مرات)\n' : ''}${it.s ? '— ' + it.s : ''}\n\nمن تطبيق «روض الذكر»`;
+}
 async function copyItem(it) {
   try { await navigator.clipboard.writeText(itemShareText(it)); toast('تم النسخ'); }
   catch (e) { const ta = document.createElement('textarea'); ta.value = itemShareText(it); document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('تم النسخ'); }
@@ -602,7 +682,7 @@ function renderReader(id, i, occ) {
     <div class="rprog"><i style="width:${(i + 1) / c.items.length * 100}%"></i></div>
     <article class="glass reader-card ${dir}" id="rcard">
       ${it.o && !c0.groups && id !== 'morning' && id !== 'evening' ? `<div class="zocc">${esc(it.o)}</div>` : ''}
-      <div class="zbody">${esc(clean(it.t))}</div>
+      <div class="zbody">${esc(clean(it.t))}</div>${xlHtml(it)}
       <div class="zextra">${extraHtml(it)}</div>
       <div class="zfoot">
         <span class="zno">${i + 1}</span>
@@ -660,18 +740,21 @@ const TZ_VERSES = [
   ['﴿فَاصْبِرْ إِنَّ وَعْدَ اللَّهِ حَقٌّ وَاسْتَغْفِرْ لِذَنْبِكَ وَسَبِّحْ بِحَمْدِ رَبِّكَ بِالْعَشِيِّ وَالْإِبْكَارِ﴾', 'غافر: 55'],
   ['﴿إِنَّ اللَّهَ وَمَلَائِكَتَهُ يُصَلُّونَ عَلَى النَّبِيِّ ۚ يَا أَيُّهَا الَّذِينَ آمَنُوا صَلُّوا عَلَيْهِ وَسَلِّمُوا تَسْلِيمًا﴾', 'الأحزاب: 56']
 ];
-const tzTarget = k => { const v = S.tasbih.targets[k]; return v === undefined || v === null || v === '' ? TASBIH[k][1] : +v; };
+S.tasbih.custom = S.tasbih.custom || [];   // أذكار يضيفها المستخدم: { id, t, n }
+const tzList = () => TASBIH.map((p, j) => ({ k: j, t: p[0], n: p[1] })).concat(S.tasbih.custom.map(c => ({ k: c.id, t: c.t, n: c.n, custom: true })));
+const tzItem = k => tzList().find(x => String(x.k) === String(k));
+const tzTarget = k => { const v = S.tasbih.targets[k]; if (v !== undefined && v !== null && v !== '') return +v; const it = tzItem(k); return it ? it.n : 0; };
 const tzCount = k => S.tasbih.counts[k] || 0;
 const tzBase = t => t.length <= 22 ? 30 : t.length <= 60 ? 24 : 19;
 function renderTasbih() {
   setBg('jasmine'); $('#topTitle').textContent = 'السبحة الإلكترونية';
-  const T = S.tasbih; if (!TASBIH[T.p]) T.p = 0;
-  const k = T.p, tg = tzTarget(k), cn = tzCount(k);
+  const T = S.tasbih, L = tzList(); if (!tzItem(T.p)) T.p = 0;
+  const k = T.p, cur = tzItem(k), pos = L.indexOf(L.find(x => String(x.k) === String(k))), tg = tzTarget(k), cn = tzCount(k);
   const R = 140, C = 2 * Math.PI * R, prog = tg ? Math.min(1, cn / tg) : 0;
   const vs = TZ_VERSES[new Date().getDate() % 3];
   view.innerHTML = `<div class="wrap tasbih">
-    <div class="tz-verse">${vs[0]} <small>[${vs[1]}]</small></div>
-    <div class="tz-phrase" id="tzPhrase" style="font-size:${tzBase(TASBIH[k][0]) * T.zfs}px">${esc(TASBIH[k][0])}</div>
+    <div class="tz-verse">${vs[0]} <small>[${vs[1]}]</small>${EN && I18N.pack && I18N.pack.tzv ? `<div class="xl-en" dir="ltr">${esc(I18N.pack.tzv[vs[1]] || '')}</div>` : ''}</div>
+    <div class="tz-phrase" id="tzPhrase" style="font-size:${tzBase(cur.t) * T.zfs}px">${esc(cur.t)}</div>${(() => { const x = EN && I18N.pack && I18N.pack.tz ? I18N.pack.tz[cur.t] : null; return x ? `<div class="xl tz-xl" dir="ltr"><div class="xl-tl">${esc(x[0])}</div><div class="xl-en">${esc(x[1])}</div></div>` : ''; })()}
     <button class="bead-btn" id="bead" aria-label="سبّح">
       <svg class="ringbig" viewBox="0 0 300 300"><circle cx="150" cy="150" r="${R}" stroke="rgba(255,255,255,.14)" stroke-width="8" fill="none"/>
       <circle id="tzRing" cx="150" cy="150" r="${R}" stroke="url(#gg)" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - prog)}" style="transition:stroke-dashoffset .25s"/>
@@ -685,14 +768,36 @@ function renderTasbih() {
     </div>
     <div class="tz-total">مجموع تسبيحك: <b id="tzTot">${T.total}</b></div>
     <div class="section-title" style="width:100%">اختر الذكر <a href="#" id="tzResetAll">تصفير الكل</a></div>
-    <div class="tz-list">${TASBIH.map((p, j) => { const t2 = tzTarget(j), c2 = tzCount(j);
-      return `<button class="tz-item ${j === k ? 'on' : ''} ${t2 && c2 >= t2 ? 'done' : ''}" data-p="${j}">
-        <span class="tz-t">${esc(p[0])}</span><span class="tz-c">${c2}${t2 ? ' / ' + t2 : ''}</span>
-        <i style="width:${t2 ? Math.min(100, c2 / t2 * 100) : 0}%"></i></button>`; }).join('')}</div>
+    <div class="tz-list">${L.map(x => { const j = x.k, t2 = tzTarget(j), c2 = tzCount(j);
+      return `<div class="tz-wrap"><button class="tz-item ${String(j) === String(k) ? 'on' : ''} ${t2 && c2 >= t2 ? 'done' : ''} ${x.custom ? 'mine' : ''}" data-p="${j}">
+        <span class="tz-t">${x.custom ? '<em class="tz-mine">ذكري</em>' : ''}${esc(x.t)}</span><span class="tz-c">${c2}${t2 ? ' / ' + t2 : ''}</span>
+        <i style="width:${t2 ? Math.min(100, c2 / t2 * 100) : 0}%"></i></button>${x.custom ? `<button class="tz-del" data-del="${j}" aria-label="حذف الذكر">✕</button>` : ''}</div>`; }).join('')}</div>
+    <div class="glass tz-add" id="tzAdd">
+      <button class="btn btn-gold" id="tzAddOpen">＋ أضف ذكرًا إلى السبحة</button>
+      <div class="tz-form" hidden>
+        <label>نص الذكر<textarea id="tzNewT" rows="3" maxlength="400" placeholder="اكتب الذكر أو الدعاء…"></textarea></label>
+        <label>عدد مرات التكرار <small>(0 = بلا حد)</small><input type="number" id="tzNewN" inputmode="numeric" min="0" max="100000" value="33" class="num-in"></label>
+        <div class="tz-quick">${[3, 7, 10, 33, 100, 1000].map(v => `<button class="chip" data-qn="${v}">${v}</button>`).join('')}</div>
+        <div class="tz-row"><button class="btn btn-gold" id="tzNewSave">حفظ</button><button class="btn btn-ghost" id="tzNewCancel">إلغاء</button></div>
+      </div>
+    </div>
   </div>`;
-  view.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { T.p = +b.dataset.p; save(); renderTasbih(); window.scrollTo(0, 0); view.scrollTop = 0; });
+  const form = view.querySelector('.tz-form');
+  $('#tzAddOpen').onclick = () => { form.hidden = false; $('#tzAddOpen').hidden = true; $('#tzNewT').focus(); };
+  $('#tzNewCancel').onclick = () => { form.hidden = true; $('#tzAddOpen').hidden = false; };
+  view.querySelectorAll('[data-qn]').forEach(b => b.onclick = () => { $('#tzNewN').value = b.dataset.qn; });
+  $('#tzNewSave').onclick = () => {
+    const txt = $('#tzNewT').value.trim(), n = Math.max(0, Math.floor(+$('#tzNewN').value || 0));
+    if (!txt) { toast('اكتب نص الذكر أولًا'); return; }
+    const id = 'c' + Date.now().toString(36); T.custom.push({ id, t: txt, n }); T.p = id; save(); renderTasbih(); window.scrollTo(0, 0); view.scrollTop = 0; toast('أُضيف الذكر إلى السبحة');
+  };
+  view.querySelectorAll('[data-del]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); const id = b.dataset.del; if (!confirm('حذف هذا الذكر من السبحة؟')) return;
+    T.custom = T.custom.filter(c => c.id !== id); delete T.counts[id]; delete T.targets[id]; if (String(T.p) === id) T.p = 0; save(); renderTasbih(); toast('حُذف الذكر');
+  });
+  view.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { T.p = /^\d+$/.test(b.dataset.p) ? +b.dataset.p : b.dataset.p; save(); renderTasbih(); window.scrollTo(0, 0); view.scrollTop = 0; });
   $('#tzReset').onclick = () => { T.counts[k] = 0; save(); renderTasbih(); };
-  const tzFs = d => { T.zfs = Math.round(Math.max(0.55, Math.min(1.6, T.zfs + d)) * 100) / 100; save(); $('#tzPhrase').style.fontSize = tzBase(TASBIH[k][0]) * T.zfs + 'px'; toast('خط الذكر ' + Math.round(T.zfs * 100) + '%'); };
+  const tzFs = d => { T.zfs = Math.round(Math.max(0.55, Math.min(1.6, T.zfs + d)) * 100) / 100; save(); $('#tzPhrase').style.fontSize = tzBase(cur.t) * T.zfs + 'px'; toast('خط الذكر ' + Math.round(T.zfs * 100) + '%'); };
   $('#tzFm').onclick = () => tzFs(-0.1); $('#tzFp').onclick = () => tzFs(0.1);
   $('#tzResetAll').onclick = e => { e.preventDefault(); T.counts = {}; save(); renderTasbih(); toast('تم تصفير السبحة'); };
   $('#bead').onclick = () => {
@@ -704,7 +809,7 @@ function renderTasbih() {
     const item = view.querySelector(`.tz-item[data-p="${k}"]`); if (item) { item.querySelector('.tz-c').textContent = c2 + (tg ? ' / ' + tg : ''); item.querySelector('i').style.width = (tg ? Math.min(100, c2 / tg * 100) : 0) + '%'; item.classList.toggle('done', !!tg && c2 >= tg); }
     if (hit) {
       celebrate('📿'); toast('أتممت ' + tg + ' — بارك الله فيك');
-      if (S.settings.autoNext && k < TASBIH.length - 1) setTimeout(() => { T.p = k + 1; save(); renderTasbih(); }, 700);
+      if (S.settings.autoNext && pos < L.length - 1) setTimeout(() => { T.p = L[pos + 1].k; save(); renderTasbih(); }, 700);
     }
   };
 }
@@ -820,6 +925,63 @@ function supportBtn() {
   return `<div class="sup-cta"><span class="sp-logo">${LOGO}</span><small>من إنتاج مِشْكَاة · مجاني وبلا إعلانات</small>
     <a class="btn btn-gold sup-btn" href="#/support">♡ ادعم التطبيق</a></div>`;
 }
+/* ---------- التقييم والاقتراحات (تُحفظ في جدول Google عبر Apps Script) ---------- */
+const FEEDBACK_URL = () => (window.MK_CFG && window.MK_CFG.feedbackUrl) || '';
+S.fbq = S.fbq || [];   // تقييمات تنتظر الإنترنت
+S.dev = S.dev || ('d' + Math.random().toString(36).slice(2, 10));
+function platformName() {
+  const n = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+  const ua = navigator.userAgent; const os = /android/i.test(ua) ? 'Android' : /iphone|ipad|ipod/i.test(ua) ? 'iOS' : /windows/i.test(ua) ? 'Windows' : /mac/i.test(ua) ? 'Mac' : 'Other';
+  return os + (n ? ' · APK' : matchMedia('(display-mode: standalone)').matches ? ' · PWA' : ' · Web');
+}
+async function sendFeedback(f) {
+  const url = FEEDBACK_URL(); if (!url) throw new Error('nourl');
+  await fetch(url, { method: 'POST', mode: 'no-cors', body: new URLSearchParams(f) });
+}
+async function flushFeedback() {
+  if (!S.fbq.length || !navigator.onLine || !FEEDBACK_URL()) return;
+  const q = S.fbq.slice();
+  for (const f of q) { try { await sendFeedback(f); S.fbq.splice(S.fbq.indexOf(f), 1); save(); } catch (e) { break; } }
+}
+window.addEventListener('online', flushFeedback); setTimeout(flushFeedback, 5000);
+function renderRate() {
+  setBg('blossom'); $('#topTitle').textContent = tr('قيّم التطبيق');
+  const prev = S.rated || {};
+  view.innerHTML = `<div class="wrap">
+    <section class="glass rate">
+      <h2>⭐ ${tr('ما رأيك في «روض الذكر»؟')}</h2>
+      <p>${tr('تقييمك واقتراحاتك تصل مباشرة إلى فريق مشكاة وتساعدنا على تطوير التطبيق.')}</p>
+      <div class="stars" id="stars" role="radiogroup" aria-label="${tr('التقييم')}">${[1, 2, 3, 4, 5].map(n => `<button data-st="${n}" role="radio" aria-label="${n}">★</button>`).join('')}</div>
+      <div class="st-lbl" id="stLbl">${tr('اضغط على النجوم للتقييم')}</div>
+      <label class="fl">${tr('اقتراحات أو تعديلات تحب إضافتها (اختياري)')}
+        <textarea id="fbText" rows="5" maxlength="2000" placeholder="${tr('مثال: أتمنى إضافة…')}"></textarea></label>
+      <div class="two">
+        <label class="fl">${tr('الاسم (اختياري)')}<input id="fbName" maxlength="80"></label>
+        <label class="fl">${tr('بريد أو هاتف للرد (اختياري)')}<input id="fbContact" maxlength="120" dir="ltr"></label>
+      </div>
+      <button class="btn btn-gold" id="fbSend" style="width:100%;margin-top:12px">${tr('إرسال')}</button>
+      <p class="note" style="margin-top:10px">${tr('لا نجمع أي بيانات أخرى. إن لم يتوفر الإنترنت يُحفظ تقييمك ويُرسل تلقائيًا لاحقًا.')}</p>
+      ${prev.at ? `<p class="note">✓ ${tr('أرسلت تقييمًا سابقًا')}: ${'★'.repeat(prev.stars || 0)}</p>` : ''}
+    </section></div>`;
+  let stars = 0;
+  const LBL = ['', 'ضعيف', 'مقبول', 'جيد', 'جيد جدًا', 'ممتاز'];
+  const paint = n => { view.querySelectorAll('[data-st]').forEach(b => b.classList.toggle('on', +b.dataset.st <= n)); $('#stLbl').textContent = n ? tr(LBL[n]) : tr('اضغط على النجوم للتقييم'); };
+  view.querySelectorAll('[data-st]').forEach(b => b.onclick = () => { stars = +b.dataset.st; paint(stars); vibrate(15); });
+  $('#fbSend').onclick = async () => {
+    const text = $('#fbText').value.trim();
+    if (!stars && !text) { toast(tr('اختر عدد النجوم أو اكتب اقتراحك')); return; }
+    const f = { app: 'روض الذكر', ver: APP_VER, platform: platformName(), lang: (window.I18N && I18N.lang) || 'ar', stars, text,
+                name: $('#fbName').value.trim(), contact: $('#fbContact').value.trim(), device: S.dev };
+    const btn = $('#fbSend'); btn.disabled = true; btn.textContent = tr('جارٍ الإرسال…');
+    try { if (!navigator.onLine) throw 0; await sendFeedback(f); }
+    catch (e) { S.fbq.push(f); }
+    S.rated = { at: Date.now(), stars }; save();
+    view.querySelector('.rate').innerHTML = `<div class="rate-done"><div class="big">💚</div><h2>${tr('جزاك الله خيرًا')}</h2>
+      <p>${tr('وصلنا تقييمك، وسنقرأ كل اقتراح باهتمام.')}</p><a class="btn btn-gold" href="#/">${tr('العودة للرئيسية')}</a></div>`;
+    celebrate('⭐');
+  };
+}
+
 function renderSupport() {
   view.innerHTML = `<div class="wrap">${supportCard()}
     <div class="glass author" style="margin-top:12px"><div class="au-t"><b>تواصل مع مِشْكَاة</b>
@@ -835,6 +997,11 @@ function renderSettings() {
   const sw = (k, t, d) => `<div class="set-row"><div class="t"><b>${t}</b><small>${d}</small></div><button class="switch ${st[k] ? 'on' : ''}" data-sw="${k}" aria-label="${t}"></button></div>`;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   view.innerHTML = `<div class="wrap">
+    <div class="section-title">اللغة · Language</div>
+    <div class="glass set-group">
+      <div class="set-row"><div class="t"><b data-noi18n>${EN ? 'Language' : 'اللغة · Language'}</b><small>العربية هي الأصل؛ الإنجليزية تضيف النطق والترجمة تحت كل ذكر</small></div>
+        <div class="seg" id="langSeg" data-noi18n>${[['ar', 'العربية'], ['en', 'English']].map(([v, l]) => `<button class="${((window.I18N && I18N.lang) || 'ar') === v ? 'on' : ''}" data-lang="${v}">${l}</button>`).join('')}</div></div>
+    </div>
     <div class="section-title">المظهر</div>
     <div class="glass set-group">
       <div class="set-row"><div class="t"><b>السمة</b><small>طبيعة زجاجية، ليلية، أو عاجية فاتحة</small></div>
@@ -876,8 +1043,9 @@ function renderSettings() {
     <div class="section-title" id="tzSet">أعداد التسبيح في السبحة</div>
     <div class="glass set-group">
       <p class="note" style="margin:10px 0 4px">حدّد عدد مرات التكرار لكل ذكر (0 = بلا حد).</p>
-      ${TASBIH.map((p, j) => `<div class="set-row tzset"><div class="t"><b class="q">${esc(p[0].split('\n')[0])}${p[0].includes('\n') ? '…' : ''}</b></div>
-        <input type="number" inputmode="numeric" min="0" max="100000" class="num-in" data-tz="${j}" value="${tzTarget(j)}"></div>`).join('')}
+      ${tzList().map(x => `<div class="set-row tzset"><div class="t"><b class="q">${x.custom ? '<em class="tz-mine">ذكري</em>' : ''}${esc(x.t.split('\n')[0])}${x.t.includes('\n') ? '…' : ''}</b></div>
+        <input type="number" inputmode="numeric" min="0" max="100000" class="num-in" data-tz="${x.k}" value="${tzTarget(x.k)}"></div>`).join('')}
+      <div class="set-row"><div class="t"><b>أذكارك الخاصة</b><small>أضف أذكارك وحدّد عددها من صفحة السبحة</small></div><a class="btn btn-ghost btn-sm" href="#/tasbih">＋ إضافة</a></div>
       <div class="set-row"><div class="t"><b>استعادة الأعداد الافتراضية</b></div><button class="btn btn-ghost btn-sm" id="tzDefaults">↺ استعادة</button></div>
     </div>
     <div class="section-title">التثبيت والعمل دون إنترنت</div>
@@ -890,6 +1058,8 @@ function renderSettings() {
           : '<li>افتح الرابط في Chrome.</li><li>اضغط ⋮ ثم «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».</li><li>سيظهر الأيقون بين تطبيقاتك ويعمل دون إنترنت.</li>'}</ol>
       </div>
     </div>
+    <div class="section-title">قيّم التطبيق</div>
+    <a class="glass set-group rate-link" href="#/rate"><span class="ic">⭐</span><span class="t"><b>قيّم «روض الذكر» واقترح إضافات</b><small>رأيك يصل مباشرة إلى فريق مشكاة</small></span><span class="go">←</span></a>
     <div class="section-title">تواصل معنا</div>
     <div class="glass author">
       <div class="au-t"><b>مِشْكَاة · MISHKAT APPS</b>
@@ -908,6 +1078,7 @@ function renderSettings() {
   view.querySelectorAll('#themeSeg button').forEach(b => b.onclick = () => { st.theme = b.dataset.v; save(); applySettings(); renderSettings(); });
   view.querySelectorAll('[data-font]').forEach(b => b.onclick = () => { st.font = b.dataset.font; save(); applySettings(); view.querySelectorAll('[data-font]').forEach(x => x.classList.toggle('on', x === b)); });
   $('#fsRange').oninput = e => { st.fs = +e.target.value; applySettings(); save(); $('#fsVal').textContent = Math.round(21 * st.fs); };
+  view.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { if (window.I18N && b.dataset.lang !== I18N.lang) I18N.setLang(b.dataset.lang); });
   view.querySelectorAll('[data-rem]').forEach(b => b.onclick = async () => {
     const k = b.dataset.rem, on = !S.rem[k];
     if (on && !(await askNotify())) { toast('لم يُسمح بالتنبيهات — فعّلها من إعدادات الجهاز'); return; }
