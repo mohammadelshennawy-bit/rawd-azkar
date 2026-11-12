@@ -29,6 +29,7 @@ S.pray = Object.assign({ city: 'cairo', method: 'egypt', asr: 1, h24: false, lat
 S.lastPos = S.lastPos || {};
 if (S.day !== today()) { S.day = today(); const keep = {}; for (const id in S.counts) if (ITEM[id] && ITEM[id].cat === 'prayer') keep[id] = S.counts[id]; S.counts = keep; }
 S.slots = S.slots || {};
+S.rem = Object.assign({ morning: false, evening: false, sleep: false, mOff: 30, eOff: 30, sleepAt: '22:30' }, S.rem || {});
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 save();
 
@@ -293,6 +294,57 @@ function hijri() {
   try { return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date()); }
   catch (e) { return ''; }
 }
+/* ---------- تنبيهات الأذكار: الصباح بعد الفجر، المساء بعد العصر، النوم في وقت يختاره المستخدم ---------- */
+const LN = () => window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+const REM = { morning: { id: 1000, t: '☀️ أذكار الصباح', b: 'حان وقت أذكار الصباح — لا تنسَ وردك' },
+              evening: { id: 1010, t: '🌙 أذكار المساء', b: 'حان وقت أذكار المساء — لا تنسَ وردك' },
+              sleep:   { id: 1020, t: '🛏️ أذكار النوم', b: 'قبل أن تنام: أذكار النوم والاستيقاظ' } };
+function remTimes() {   // مواعيد الأيام السبعة القادمة
+  const loc = prayLoc(), now = Date.now(), out = [];
+  for (let di = 0; di < 7; di++) {
+    const [y, m, d] = ymdIn(loc.tz, new Date(now + di * 864e5)); let T = null;
+    try { T = prayerTimes(y, m, d, loc); } catch (e) {}
+    const add = (k, at) => { if (at && at.getTime() > now + 30e3 && !(di === 0 && CAT[k] && catProgress(CAT[k]).p === 1)) out.push({ k, at, id: REM[k].id + di }); };
+    if (S.rem.morning && T) add('morning', new Date(T.fajr.getTime() + S.rem.mOff * 6e4));
+    if (S.rem.evening && T) add('evening', new Date(T.asr.getTime() + S.rem.eOff * 6e4));
+    if (S.rem.sleep) { const [h, mi] = String(S.rem.sleepAt || '22:30').split(':').map(Number); const x = new Date(now + di * 864e5); x.setHours(h, mi, 0, 0); add('sleep', x); }
+  }
+  return out;
+}
+let _webRem = [];
+async function scheduleReminders() {
+  const list = remTimes(), ln = LN();
+  if (ln) {
+    try {
+      const ids = []; for (const k in REM) for (let i = 0; i < 7; i++) ids.push({ id: REM[k].id + i });
+      await ln.cancel({ notifications: ids });
+      if (list.length) await ln.schedule({ notifications: list.map(x => ({ id: x.id, title: REM[x.k].t, body: REM[x.k].b,
+        schedule: { at: x.at, allowWhileIdle: true }, extra: { h: '#/s/' + x.k } })) });
+    } catch (e) {}
+    return;
+  }
+  // المتصفح: تعمل التنبيهات ما دام التطبيق مفتوحًا أو في الخلفية
+  _webRem.forEach(clearTimeout); _webRem = [];
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  list.filter(x => x.at - Date.now() < 864e5).forEach(x => _webRem.push(setTimeout(async () => {
+    if (CAT[x.k] && catProgress(CAT[x.k]).p === 1) return;
+    try { const r = await navigator.serviceWorker.getRegistration(); const o = { body: REM[x.k].b, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: x.k, data: { h: '#/s/' + x.k } };
+      if (r) r.showNotification(REM[x.k].t, o); else new Notification(REM[x.k].t, o); } catch (e) {}
+  }, x.at - Date.now())));
+}
+async function askNotify() {
+  const ln = LN();
+  try {
+    if (ln) { let p = await ln.checkPermissions(); if (p.display !== 'granted') p = await ln.requestPermissions(); return p.display === 'granted'; }
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'granted') return true;
+    return (await Notification.requestPermission()) === 'granted';
+  } catch (e) { return false; }
+}
+try { const ln = LN(); if (ln) ln.addListener('localNotificationActionPerformed', a => { const h = a && a.notification && a.notification.extra && a.notification.extra.h; if (h) location.hash = h; }); } catch (e) {}
+setTimeout(scheduleReminders, 1500);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleReminders(); });
+
 /* ---------- أذكار الوقت: اقتراحات مرتبطة بالمواقيت + تصفير أذكار بعد الصلاة ---------- */
 const G_EACH = 'بعد كل صلاة مفروضة', G_FM = 'بعد صلاتي الفجر والمغرب';
 function lastPrayers() {   // آخر صلاة دخل وقتها، وآخر صلاة من الفجر/المغرب
@@ -388,7 +440,8 @@ function renderHome() {
 }
 function resumeCard() {
   const L = S.last; if (!L || !CAT[L.cat]) return '';
-  const c = CAT[L.cat], n = listOf(c, L.g || null).length, i = Math.min(L.i, n - 1);
+  const c = CAT[L.cat], LL = listOf(c, L.g || null), n = LL.length, i = Math.min(L.i, n - 1);
+  if (!n || LL.every(isDone)) return '';   // لا يظهر إذا اكتمل الباب
   return `<a class="glass resume" href="#/r/${c.id}/${i}${qs(L.g)}"><span class="ic">${c.icon}</span><span class="t"><small>تابع من حيث توقفت</small>
     <b>${esc(c.name)}${L.g ? ' · ' + esc(L.g) : ''}</b><small>الذكر ${i + 1} من ${n}</small><div class="bar"><i style="width:${(i + 1) / n * 100}%"></i></div></span><span style="color:var(--gold-2);font-size:22px">←</span></a>`;
 }
@@ -428,9 +481,11 @@ function extraHtml(it, force) {
 /* الأبواب التي كلها أدعية: زر «آمين» بدل العدّاد، وبقية ما يُقرأ مرة واحدة: «تمّ» */
 const DUA_CATS = ['jawami', 'quran', 'relief'];
 const onceLabel = it => DUA_CATS.includes(it.cat) ? 'آمين' : 'تمّ';
+const NUM_CATS = ['morning', 'evening', 'prayer'];   // تُعرض فيها الأعداد دائمًا حتى لو كان العدد 1
+const isOnce = it => targetOf(it) === 1 && !NUM_CATS.includes(it.cat);
 function ringHtml(it, size = 54) {
   const t = targetOf(it), c = Math.min(countOf(it.id), t), done = c >= t, r = size / 2 - 4, C = 2 * Math.PI * r;
-  if (t === 1) return `<span class="once ${done ? 'on' : ''}">${done ? '✓ ' + onceLabel(it) : onceLabel(it)}</span>`;
+  if (isOnce(it)) return `<span class="once ${done ? 'on' : ''}">${done ? '✓ ' + onceLabel(it) : onceLabel(it)}</span>`;
   return `<span class="ring" style="width:${size}px;height:${size}px"><svg viewBox="0 0 ${size} ${size}"><circle class="tr" cx="${size/2}" cy="${size/2}" r="${r}"/><circle class="pr" cx="${size/2}" cy="${size/2}" r="${r}" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - c / t)}"/></svg><b>${done ? '✓' : t - c}</b></span>`;
 }
 function zcard(it, n, opts = {}) {
@@ -488,7 +543,7 @@ function bump(it) {
   const finished = c + 1 >= t;
   if (finished) {
     vibrate([40, 60, 40]); S.days[today()] = (S.days[today()] || 0) + 1;
-    const cat = CAT[it.cat]; if (catProgress(cat).p === 1) { celebrate('🌟'); toast('أتممت ' + cat.name + ' — تقبّل الله'); }
+    const cat = CAT[it.cat]; if (catProgress(cat).p === 1) { celebrate('🌟'); toast('أتممت ' + cat.name + ' — تقبّل الله'); if (REM[it.cat]) scheduleReminders(); }
   } else vibrate(18);
   save(); return finished;
 }
@@ -499,7 +554,7 @@ function bindCommon() {
     if (b.dataset.count) {
       const it = ITEM[b.dataset.count]; const fin = bump(it);
       const nw = updateCard(it); if (nw) { const k = nw.querySelector('.counter'); k.classList.remove('pulse'); void k.offsetWidth; k.classList.add('pulse');
-        if (fin && S.settings.autoNext) { const nx = nw.nextElementSibling; if (nx) setTimeout(() => nx.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350); } }
+        if (fin && S.settings.autoNext) { const nx = nw.nextElementSibling; if (nx) setTimeout(() => { const tb = $('.topbar'); nx.style.scrollMarginTop = ((tb ? tb.offsetHeight : 70) + 12) + 'px'; nx.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 350); } }
       const sp = $('#secProg'); if (sp) { const cc = CAT[it.cat]; const p = cc.groups ? catProgress({ items: cc.items.filter(x => x.o === it.o) }) : catProgress(cc); sp.textContent = `${p.d} / ${p.n} مكتمل`; }
     } else if (b.dataset.fav) toggleFav(b.dataset.fav, b);
     else if (b.dataset.copy) copyItem(ITEM[b.dataset.copy]);
@@ -559,7 +614,7 @@ function renderReader(id, i, occ) {
     </article>
     <div class="reader-nav">
       <button class="rnav" id="rPrev" ${i === 0 ? 'disabled' : ''} aria-label="السابق"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
-      <button class="big-count ${done ? 'done' : ''} ${t === 1 ? 'once-big' : ''}" id="rCount">${t === 1 ? (done ? '✓ ' + onceLabel(it) : onceLabel(it)) : (done ? '✓' : t - cnt)}</button>
+      <button class="big-count ${done ? 'done' : ''} ${isOnce(it) ? 'once-big' : ''}" id="rCount">${isOnce(it) ? (done ? '✓ ' + onceLabel(it) : onceLabel(it)) : (done ? '✓' : t - cnt)}</button>
       <button class="rnav" id="rNext" ${i === c.items.length - 1 ? 'disabled' : ''} aria-label="التالي"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
     </div></div>`;
   const go = k => { if (k >= 0 && k < c.items.length) { replaceNav(`#/r/${id}/${k}${Q}`); renderReader(id, k, g); view.scrollTop = 0; } };
@@ -571,7 +626,7 @@ function renderReader(id, i, occ) {
     if (isDone(it)) { if (i < c.items.length - 1) go(i + 1); else { celebrate('🌟'); toast('أتممت ' + c.name); } return; }
     const fin = bump(it);
     const b = $('#rCount'); const left = targetOf(it) - countOf(it.id);
-    b.textContent = targetOf(it) === 1 ? '✓ ' + onceLabel(it) : (fin ? '✓' : left); b.classList.toggle('done', fin); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
+    b.textContent = isOnce(it) ? '✓ ' + onceLabel(it) : (fin ? '✓' : left); b.classList.toggle('done', fin); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
     if (fin && S.settings.autoNext && i < c.items.length - 1) setTimeout(() => go(i + 1), 450);
   };
   const card = $('#rcard'); let sx = 0, sy = 0;
@@ -800,6 +855,18 @@ function renderSettings() {
       ${sw('autoNext', 'الانتقال التلقائي', 'الانتقال إلى الذكر التالي عند إتمام العدد (في الأذكار والسبحة)')}
       <div class="set-row"><div class="t"><b>إعادة ضبط عدّادات اليوم</b><small>تُصفَّر تلقائيًا مع بداية كل يوم</small></div><button class="btn btn-ghost btn-sm" id="resetAll">↺ تصفير</button></div>
     </div>
+    <div class="section-title">التنبيهات</div>
+    <div class="glass set-group">
+      <div class="set-row"><div class="t"><b>☀️ أذكار الصباح</b><small>بعد أذان الفجر بـ
+        <select class="sel sel-sm" data-remoff="mOff">${[0, 15, 30, 45, 60, 90].map(v => `<option value="${v}" ${S.rem.mOff === v ? 'selected' : ''}>${v}</option>`).join('')}</select> دقيقة</small></div>
+        <button class="switch ${S.rem.morning ? 'on' : ''}" data-rem="morning" aria-label="تنبيه أذكار الصباح"></button></div>
+      <div class="set-row"><div class="t"><b>🌙 أذكار المساء</b><small>بعد أذان العصر بـ
+        <select class="sel sel-sm" data-remoff="eOff">${[0, 15, 30, 45, 60, 90].map(v => `<option value="${v}" ${S.rem.eOff === v ? 'selected' : ''}>${v}</option>`).join('')}</select> دقيقة</small></div>
+        <button class="switch ${S.rem.evening ? 'on' : ''}" data-rem="evening" aria-label="تنبيه أذكار المساء"></button></div>
+      <div class="set-row"><div class="t"><b>🛏️ أذكار النوم</b><small>الساعة <input type="time" class="sel sel-sm" id="remSleepAt" value="${esc(S.rem.sleepAt)}"></small></div>
+        <button class="switch ${S.rem.sleep ? 'on' : ''}" data-rem="sleep" aria-label="تنبيه أذكار النوم"></button></div>
+      <div class="set-row" style="display:block"><div class="t"><small>لا يصلك التنبيه إذا أتممت الأذكار قبل موعدها. ${LN() ? 'المواعيد تتبع مواقيت الصلاة لمدينتك.' : 'في المتصفح تصل التنبيهات ما دام التطبيق مفتوحًا أو في الخلفية؛ وللتنبيهات الكاملة ثبّت نسخة أندرويد (APK).'}</small></div></div>
+    </div>
     <div class="section-title">الصفحة الرئيسية</div>
     <div class="glass set-group">
       ${sw('showStats', 'إظهار الإحصاءات', 'الأذكار المكتملة، مجموع التسبيح، الأيام المتتالية')}
@@ -841,6 +908,13 @@ function renderSettings() {
   view.querySelectorAll('#themeSeg button').forEach(b => b.onclick = () => { st.theme = b.dataset.v; save(); applySettings(); renderSettings(); });
   view.querySelectorAll('[data-font]').forEach(b => b.onclick = () => { st.font = b.dataset.font; save(); applySettings(); view.querySelectorAll('[data-font]').forEach(x => x.classList.toggle('on', x === b)); });
   $('#fsRange').oninput = e => { st.fs = +e.target.value; applySettings(); save(); $('#fsVal').textContent = Math.round(21 * st.fs); };
+  view.querySelectorAll('[data-rem]').forEach(b => b.onclick = async () => {
+    const k = b.dataset.rem, on = !S.rem[k];
+    if (on && !(await askNotify())) { toast('لم يُسمح بالتنبيهات — فعّلها من إعدادات الجهاز'); return; }
+    S.rem[k] = on; b.classList.toggle('on', on); save(); scheduleReminders(); if (on) toast('سيصلك التنبيه في موعده بإذن الله');
+  });
+  view.querySelectorAll('[data-remoff]').forEach(x => x.onchange = () => { S.rem[x.dataset.remoff] = +x.value; save(); scheduleReminders(); });
+  $('#remSleepAt').onchange = e => { S.rem.sleepAt = e.target.value || '22:30'; save(); scheduleReminders(); };
   view.querySelectorAll('[data-sw]').forEach(b => b.onclick = () => { st[b.dataset.sw] = !st[b.dataset.sw]; b.classList.toggle('on', st[b.dataset.sw]); save(); });
   view.querySelectorAll('[data-tz]').forEach(inp => inp.onchange = () => { const v = Math.max(0, Math.floor(+inp.value || 0)); inp.value = v; S.tasbih.targets[inp.dataset.tz] = v; save(); toast('تم الحفظ'); });
   $('#tzDefaults').onclick = () => { S.tasbih.targets = {}; save(); renderSettings(); toast('استُعيدت الأعداد الافتراضية'); };

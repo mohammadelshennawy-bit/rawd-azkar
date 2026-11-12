@@ -401,3 +401,4 @@ body.t-ivory .prow{border-color:rgba(0,0,0,.07)}
 .once.on{background:linear-gradient(135deg,#7fe0d2,#2f9e90);color:#062a26}
 .counter:has(.once){min-width:0;padding:4px;background:none;border:0}
 .zcard.done .counter:has(.once){background:none}
+.sel.sel-sm{display:inline-block;width:auto;min-width:0;padding:2px 8px;height:30px;font-size:13px;margin:0 4px;vertical-align:middle}

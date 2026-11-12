@@ -1,5 +1,5 @@
 /* روض الذكر — Service Worker: تخزين كامل للعمل دون إنترنت */
-const VERSION = 'rawd-v1.6.0';
+const VERSION = 'rawd-v1.7.0';
 const CORE = ["./", "index.html", "download.html", "app.css", "app.js", "data.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/apple-touch-icon.png", "fonts/q1.ttf", "img/mishkat.svg", "img/mushaf-icon.jpg", "fonts/q2.ttf", "fonts/q3.ttf", "fonts/q4.ttf", "bg/beach.jpg", "bg/blossom.jpg", "bg/clouds.jpg", "bg/daisies.jpg", "bg/jasmine.jpg", "bg/lake.jpg", "bg/lantern.jpg", "bg/lavender.jpg", "bg/mosque.jpg", "bg/mountains.jpg", "bg/olive.jpg", "bg/sea-dusk.jpg", "bg/sea-sunset.jpg", "bg/stream.jpg", "bg/tree-sunrise.jpg"];
 const FONT_CACHE = 'rawd-fonts';
 self.addEventListener('install', e => {
@@ -28,4 +28,14 @@ self.addEventListener('fetch', e => {
   e.respondWith(caches.match(req, { ignoreSearch: true }).then(hit => hit || fetch(req).then(res => {
     if (res.ok) { const cp = res.clone(); caches.open(VERSION).then(c => c.put(req, cp)); } return res;
   })));
+});
+
+// فتح التطبيق على الباب المطلوب عند الضغط على التنبيه
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const h = (e.notification.data && e.notification.data.h) || '';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    for (const c of cs) { if ('focus' in c) { c.navigate ? c.navigate(self.registration.scope + h).catch(() => {}) : 0; return c.focus(); } }
+    return self.clients.openWindow(self.registration.scope + h);
+  }));
 });
