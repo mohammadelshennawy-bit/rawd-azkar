@@ -466,3 +466,6 @@ html[dir=ltr] .hero h1{direction:rtl;text-align:right;line-height:1.6;margin-top
 .tz-item .tz-en{display:block;font-size:11.5px;line-height:1.45;color:var(--muted);font-family:var(--ui,inherit);direction:ltr;text-align:center;white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .zact.zero[hidden]{display:none}
 .zact.zero svg{fill:none}
+.zact.full[hidden]{display:none}
+.zact.full svg{fill:none;stroke:var(--gold-2,#f2d083)}
+.reader-tools{display:flex;justify-content:center;margin-top:12px}

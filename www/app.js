@@ -530,6 +530,7 @@ const ICON = {
   fav: '<svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-9.3-9A5.3 5.3 0 0 1 12 6.3 5.3 5.3 0 0 1 21.3 12C19 16.5 12 21 12 21z"/></svg>',
   copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
   share: '<svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
+  full: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.5 9"/></svg>',
   zero: '<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v5h5"/></svg>',
   info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>'
 };
@@ -569,7 +570,7 @@ function zcard(it, n, opts = {}) {
       <button class="zact" data-copy="${it.id}" aria-label="نسخ">${ICON.copy}</button>
       <button class="zact" data-share="${it.id}" aria-label="مشاركة">${ICON.share}</button>
       ${hasExtra ? `<button class="zact" data-info="${it.id}" aria-label="الفضل والتخريج">${ICON.info}</button>` : ''}
-      <button class="zact zero" data-zero="${it.id}" aria-label="تصفير عدّاد هذا الذكر" title="تصفير العدّاد"${countOf(it.id) ? '' : ' hidden'}>${ICON.zero}</button>
+      <button class="zact full" data-full="${it.id}" aria-label="إتمام العدّ" title="إتمام العدّ"${!isOnce(it) && targetOf(it) > 1 && !isDone(it) ? '' : ' hidden'}>${ICON.full}</button><button class="zact zero" data-zero="${it.id}" aria-label="تصفير عدّاد هذا الذكر" title="تصفير العدّاد"${countOf(it.id) ? '' : ' hidden'}>${ICON.zero}</button>
       <button class="counter" data-count="${it.id}" aria-label="عدّاد">${ringHtml(it)}</button>
     </div></article>`;
 }
@@ -586,7 +587,7 @@ function renderSection(id, occ) {
     <section class="glass sec-head"><h2><span>${c.icon}</span>${esc(c.name)}</h2>
       <p>${esc(c.desc)}<br><small>المصدر: ${esc(c.src)}</small></p>
       <div class="sec-tools">${modeSwitch(id, c.groups ? occ : '')}
-        <button class="btn btn-ghost btn-sm" id="resetSec">↺ إعادة العدّ</button>
+        <button class="btn btn-ghost btn-sm" id="resetSec">↺ تصفير الباب</button>
         <button class="btn btn-ghost btn-sm" id="orderSec">↕ ترتيب الأذكار</button>
         <span class="ring-mini" id="secProg">${p.d} / ${p.n} مكتمل</span>
       </div></section>
@@ -596,7 +597,7 @@ function renderSection(id, occ) {
     <div class="stagger">${list.map((it, k) => zcard(it, c.groups || custom ? k + 1 : it.idx + 1, { hideOcc: id === 'morning' || id === 'evening' || !!c.groups })).join('')}</div>
   </div>`;
   $('#orderSec').onclick = () => renderOrder(id, occ);
-  $('#resetSec').onclick = () => { c.items.forEach(x => delete S.counts[x.id]); save(); renderSection(id, occ); toast('أُعيد ضبط العدّاد'); };
+  $('#resetSec').onclick = () => { if (resetCat(id)) renderSection(id, occ); };
   bindCommon(); bindMode();
 }
 /* ترتيب الأذكار داخل الباب */
@@ -630,7 +631,22 @@ function updateCard(it) {
   el.classList.toggle('done', isDone(it));
   el.querySelector('.counter').innerHTML = ringHtml(it);
   const z = el.querySelector('[data-zero]'); if (z) z.hidden = !countOf(it.id);
+  const f = el.querySelector('[data-full]'); if (f) f.hidden = isOnce(it) || targetOf(it) <= 1 || isDone(it);
   return el;
+}
+function onFinish(it) {   // عند اكتمال ذكر: إحصاء اليوم + تهنئة إتمام الباب
+  S.days[today()] = (S.days[today()] || 0) + 1;
+  const cat = CAT[it.cat]; if (catProgress(cat).p === 1) { celebrate('🌟'); toast('أتممت ' + cat.name + ' — تقبّل الله'); if (REM[it.cat]) scheduleReminders(); }
+}
+function completeItem(it) {   // زر «إتمام العدّ»: يعتبر العدّاد وصل للعدد المطلوب
+  if (isDone(it)) return false;
+  S.counts[it.id] = targetOf(it); vibrate([40, 60, 40]); onFinish(it); save(); return true;
+}
+function resetCat(id) {   // تصفير أذكار الباب كله
+  const c = CAT[id]; if (!c) return false;
+  if (!confirm(EN ? 'Reset the counters of all adhkar in this section?' : 'تصفير عدّادات جميع أذكار «' + c.name + '»؟')) return false;
+  c.items.forEach(x => delete S.counts[x.id]); if (S.last && S.last.cat === id) delete S.last;
+  save(); toast('صُفّرت أذكار الباب ↺'); return true;
 }
 function bump(it) {
   const t = targetOf(it); const c = countOf(it.id);
@@ -638,19 +654,23 @@ function bump(it) {
   S.counts[it.id] = c + 1;
   const finished = c + 1 >= t;
   if (finished) {
-    vibrate([40, 60, 40]); S.days[today()] = (S.days[today()] || 0) + 1;
-    const cat = CAT[it.cat]; if (catProgress(cat).p === 1) { celebrate('🌟'); toast('أتممت ' + cat.name + ' — تقبّل الله'); if (REM[it.cat]) scheduleReminders(); }
+    vibrate([40, 60, 40]); onFinish(it);
   } else vibrate(18);
   save(); return finished;
 }
 function bindCommon() {
   view.onclick = async e => {
-    const b = e.target.closest('[data-count],[data-fav],[data-copy],[data-share],[data-info],[data-zero]');
+    const b = e.target.closest('[data-count],[data-fav],[data-copy],[data-share],[data-info],[data-zero],[data-full]');
     if (!b) return;
     if (b.dataset.count) {
       const it = ITEM[b.dataset.count]; const fin = bump(it);
       const nw = updateCard(it); if (nw) { const k = nw.querySelector('.counter'); k.classList.remove('pulse'); void k.offsetWidth; k.classList.add('pulse');
         if (fin && S.settings.autoNext) { const nx = nw.nextElementSibling; if (nx) setTimeout(() => { const tb = $('.topbar'); nx.style.scrollMarginTop = ((tb ? tb.offsetHeight : 70) + 12) + 'px'; nx.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 350); } }
+      const sp = $('#secProg'); if (sp) { const cc = CAT[it.cat]; const p = cc.groups ? catProgress({ items: cc.items.filter(x => x.o === it.o) }) : catProgress(cc); sp.textContent = `${p.d} / ${p.n} مكتمل`; }
+    } else if (b.dataset.full) {
+      const it = ITEM[b.dataset.full]; if (!completeItem(it)) return;
+      if ($('#rcard')) return route();
+      const nw = updateCard(it); if (nw) { const k = nw.querySelector('.counter'); k.classList.remove('pulse'); void k.offsetWidth; k.classList.add('pulse'); }
       const sp = $('#secProg'); if (sp) { const cc = CAT[it.cat]; const p = cc.groups ? catProgress({ items: cc.items.filter(x => x.o === it.o) }) : catProgress(cc); sp.textContent = `${p.d} / ${p.n} مكتمل`; }
     } else if (b.dataset.zero) {
       const it = ITEM[b.dataset.zero]; delete S.counts[it.id]; save(); vibrate(20); toast('صُفّر عدّاد هذا الذكر ↺');
@@ -715,17 +735,19 @@ function renderReader(id, i, occ) {
         <button class="zact" data-copy="${it.id}" aria-label="نسخ">${ICON.copy}</button>
         <button class="zact" data-share="${it.id}" aria-label="مشاركة">${ICON.share}</button>
         ${it.v || it.s ? `<button class="zact" data-info="${it.id}" aria-label="الفضل والتخريج">${ICON.info}</button>` : ''}
-        <button class="zact zero" data-zero="${it.id}" aria-label="تصفير عدّاد هذا الذكر" title="تصفير العدّاد"${countOf(it.id) ? '' : ' hidden'}>${ICON.zero}</button>
+        <button class="zact full" data-full="${it.id}" aria-label="إتمام العدّ" title="إتمام العدّ"${!isOnce(it) && targetOf(it) > 1 && !isDone(it) ? '' : ' hidden'}>${ICON.full}</button><button class="zact zero" data-zero="${it.id}" aria-label="تصفير عدّاد هذا الذكر" title="تصفير العدّاد"${countOf(it.id) ? '' : ' hidden'}>${ICON.zero}</button>
       </div>
     </article>
     <div class="reader-nav">
       <button class="rnav" id="rPrev" ${i === 0 ? 'disabled' : ''} aria-label="السابق"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
       <button class="big-count ${done ? 'done' : ''} ${isOnce(it) ? 'once-big' : ''}" id="rCount">${isOnce(it) ? (done ? '✓ ' + onceLabel(it) : onceLabel(it)) : (done ? '✓' : t - cnt)}</button>
       <button class="rnav" id="rNext" ${i === c.items.length - 1 ? 'disabled' : ''} aria-label="التالي"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
-    </div></div>`;
+    </div>
+    <div class="reader-tools"><button class="btn btn-ghost btn-sm" id="resetSec">↺ تصفير الباب</button></div></div>`;
   const go = k => { if (k >= 0 && k < c.items.length) { replaceNav(`#/r/${id}/${k}${Q}`); renderReader(id, k, g); view.scrollTop = 0; } };
   $('#fsMinus').onclick = () => setFs(-0.1); $('#fsPlus').onclick = () => setFs(0.1);
   $('#toScroll').onclick = () => setMode('scroll', id, g);
+  $('#resetSec').onclick = () => { if (resetCat(id)) { renderReader._last = null; go(0); } };
   $('#rPrev').onclick = () => go(i - 1);
   $('#rNext').onclick = () => go(i + 1);
   $('#rCount').onclick = () => {
@@ -733,6 +755,7 @@ function renderReader(id, i, occ) {
     const fin = bump(it);
     const b = $('#rCount'); const left = targetOf(it) - countOf(it.id);
     const zz = $('#rcard [data-zero]'); if (zz) zz.hidden = !countOf(it.id);
+    const ff = $('#rcard [data-full]'); if (ff) ff.hidden = isDone(it);
     b.textContent = isOnce(it) ? '✓ ' + onceLabel(it) : (fin ? '✓' : left); b.classList.toggle('done', fin); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse');
     if (fin && S.settings.autoNext && i < c.items.length - 1) setTimeout(() => go(i + 1), 450);
   };
