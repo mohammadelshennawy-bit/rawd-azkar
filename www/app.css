@@ -461,3 +461,8 @@ html[dir=ltr] .fcard.big{min-height:170px}
 html[dir=ltr] .fcard h3{font-size:15.5px}
 html[dir=ltr] .hero h1{direction:rtl;text-align:right;line-height:1.6;margin-top:6px}
 .hero-tr{margin:0 0 8px;font-size:13.5px;font-style:italic;color:var(--muted)}
+
+/* 1.9.0 */
+.tz-item .tz-en{display:block;font-size:11.5px;line-height:1.45;color:var(--muted);font-family:var(--ui,inherit);direction:ltr;text-align:center;white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.zact.zero[hidden]{display:none}
+.zact.zero svg{fill:none}
