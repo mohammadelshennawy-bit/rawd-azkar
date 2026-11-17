@@ -23,7 +23,7 @@ const today = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { S = {}; }
 S.settings = Object.assign({ theme: 'ivory', font: 'Q1', fs: 0.95, vibrate: true, rotate: true, autoNext: true,
-  showVirtue: false, showSrc: false, mode: 'scroll', showStats: true, showPrayer: true, tzAuto: true, showGreet: true, remindPopup: true }, S.settings || {});
+  showVirtue: false, showSrc: false, mode: 'scroll', showStats: true, showPrayer: true, tzAuto: true, showGreet: true, remindPopup: true, showHadith: true }, S.settings || {});
 if (!S.settings.fs20) { if (S.settings.fs === 1.15) S.settings.fs = 0.95; S.settings.fs20 = 1; }   // الحجم الافتراضي الجديد 20
 S.fav = S.fav || []; S.counts = S.counts || {}; S.days = S.days || {};
 S.tasbih = Object.assign({ p: 0, total: 0, counts: {}, targets: {}, zfs: 1 }, S.tasbih || {});
@@ -421,6 +421,7 @@ function suggestCard(list) {
 function resetTick() {
   try { const raw = localStorage.getItem(KEY); if (raw) { const o = JSON.parse(raw); if (o && o.slots) { S.slots = o.slots; S.day = o.day; S.counts = o.counts || {}; } } } catch (e) {}   // أحدث حالة محفوظة
   if (checkPrayerReset() && /^#\/?($|\?|home|s\/|r\/|sections)/.test(CUR || '#/')) route();
+  if (GR.bank) setTimeout(() => showReminders(), 800);   // تذكير المناسبات عند العودة للتطبيق
 }
 setInterval(resetTick, 30000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) resetTick(); });
@@ -488,7 +489,7 @@ function grParse(bank) {
   const objs = (rows, map) => { const h = (rows[0] || []).map(x => String(x).trim());
     return rows.slice(1).map(r => { const o = {}; for (const k in map) { const i = h.indexOf(map[k]); o[k] = i < 0 ? '' : String(r[i] ?? '').trim(); } return o; }); };
   return {
-    occ: objs(bank.occ, { key: 'المفتاح', name: 'المناسبة', en: 'English', hm: 'الشهر الهجري', d1: 'من يوم', d2: 'إلى يوم', wd: 'يوم الأسبوع', t1: 'من وقت', t2: 'إلى وقت', pr: 'الأولوية', on: 'مفعّل', rem: 'التذكير قبل (أيام)' }).filter(o => o.key && on(o.on)),
+    occ: objs(bank.occ, { key: 'المفتاح', name: 'المناسبة', en: 'English', hm: 'الشهر الهجري', d1: 'من يوم', d2: 'إلى يوم', wd: 'يوم الأسبوع', t1: 'من وقت', t2: 'إلى وقت', pr: 'الأولوية', on: 'مفعّل', rem: 'التذكير قبل (أيام)', rs: 'يبدأ التذكير من وقت', re: 'ينتهي التذكير يوم المناسبة عند' }).filter(o => o.key && on(o.on)),
     msg: objs(bank.msg, { key: 'المفتاح', type: 'النوع', ar: 'النص العربي', en: 'English', ev: 'الدليل', st: 'الملصق', img: 'صورة (رابط اختياري)', on: 'مفعّل' }).filter(m => m.key && (m.ar || m.en) && on(m.on))
   };
 }
@@ -552,44 +553,85 @@ const grRemote = u => /^https?:/i.test(u || '') ? u : GR_SITE + String(u || '').
 const grName = o => EN ? (o.en || o.name) : o.name;
 const grNative = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 function grCard(kind, r) {
-  const m = r.m, emo = esc(m.st || '✨'), canImg = !grNative();
+  const m = r.m, emo = esc(m.st || '✨'), canImg = true;
   const stk = m.img ? `<img class="gs-img" src="${esc(grLocal(m.img))}" data-remote="${esc(grRemote(m.img))}" alt="" loading="lazy" onerror="if(this.dataset.remote&&this.src!==this.dataset.remote){this.src=this.dataset.remote}else{this.outerHTML='<span class=gs-emo>${emo}</span>'}">` : `<span class="gs-emo" aria-hidden="true">${emo}</span>`;
   return `<section class="glass gcard g-${kind}" data-noi18n><span class="lbl">${kind === 'g' ? '🎉' : '✦'} ${esc(grName(r.occ))}</span>
     <div class="gbody">${stk}<p class="gtxt"${EN ? ' dir="auto"' : ''}>${esc(grTxt(m))}</p>${!EN && m.ev ? `<small class="gev">${esc(m.ev)}</small>` : ''}</div>
     <div class="gbtns">${r.n > 1 ? `<button class="btn btn-ghost btn-sm" data-gr="next" data-k="${kind}">${EN ? '↻ Another' : '↻ عبارة أخرى'}</button>` : ''}
       <button class="btn btn-ghost btn-sm" data-gr="copy" data-k="${kind}">${EN ? '⧉ Copy' : '⧉ نسخ'}</button>
       <button class="btn btn-ghost btn-sm" data-gr="share" data-k="${kind}">${EN ? '↗ Share' : '↗ مشاركة'}</button>
-      ${canImg ? `<button class="btn btn-gold btn-sm" data-gr="img" data-k="${kind}">${EN ? '🖼 As image' : '🖼 كصورة'}</button>` : ''}</div></section>`;
+      ${canImg ? `<button class="btn btn-gold btn-sm" data-gr="img" data-k="${kind}">${EN ? '🖼 As image' : '🖼 كصورة'}</button>` : ''}
+      ${m.img ? `<button class="btn btn-ghost btn-sm" data-gr="stk" data-k="${kind}">${EN ? '📥 Sticker' : '📥 الملصق'}</button>` : ''}</div></section>`;
 }
 function greetCards() {
   if (!S.settings.showGreet || !GR.bank) return '';
   grRefresh();
   const { g, r } = GR.cur;
-  return (g ? grCard('g', g) : '') + (r ? grCard('r', r) : '');
+  return (g ? grCard('g', g) : '') + (r ? grCard('r', r) : '') +
+    `<div class="gal-row" data-noi18n><button class="btn btn-ghost btn-sm" data-gr="gal">${EN ? '🎨 Stickers to share' : '🎨 ملصقات للمشاركة'}</button></div>`;
 }
 const grShareText = r => (r.m.st ? r.m.st + ' ' : '') + grTxt(r.m) + '\n\n— ' + (EN ? 'Rawd adh-Dhikr · Mishkat' : 'روض الذكر · مشكاة') + '\n' + GR_SITE;
+const grPlug = n => window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[n];
+const grB64 = blob => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
+async function grShareFile(blob, name, text) {   // مشاركة صورة: في التطبيق المثبّت عبر نافذة المشاركة في أندرويد، وفي المتصفح عبر Web Share أو التنزيل
+  const SH = grPlug('Share'), FS = grPlug('Filesystem');
+  if (grNative() && SH && FS) {
+    try { const w = await FS.writeFile({ path: name, data: await grB64(blob), directory: 'CACHE' });
+      await SH.share({ files: [w.uri], text: text || undefined, dialogTitle: EN ? 'Share' : 'مشاركة' }); return; } catch (e) { if (/cancel/i.test(String(e && (e.message || e)))) return; }
+  }
+  const f = new File([blob], name, { type: blob.type || 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share(text ? { files: [f], text } : { files: [f] }); } catch (e) {} return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast(EN ? 'Image saved' : 'تم حفظ الصورة');
+}
+async function grShareText2(text) {
+  const SH = grPlug('Share');
+  if (grNative() && SH) { try { await SH.share({ text, dialogTitle: EN ? 'Share' : 'مشاركة' }); return true; } catch (e) { return /cancel/i.test(String(e && (e.message || e))); } }
+  if (navigator.share) { try { await navigator.share({ text }); } catch (e) {} return true; }
+  return false;
+}
+let GR_GAL = null;
+async function grGallery() {   // معرض الملصقات: ملصقات المناسبة الحالية أولًا
+  if (!GR_GAL) { try { GR_GAL = await (await fetch('img/stickers/index.json')).json(); } catch (e) { return toast(EN ? 'Could not load stickers' : 'تعذّر تحميل الملصقات'); } }
+  const c = grContext(new Date()), now = GR.bank ? GR.bank.occ.filter(o => grActive(o, c)).map(o => o.key) : [];
+  grUpcoming().forEach(r => now.push(r.occ.key));
+  const score = it => { const o = it.occ || []; return o.some(k => now.includes(k)) ? 0 : !o.length ? 1 : /^g-/.test(it.id) ? 2 : 3; };
+  const list = GR_GAL.slice().sort((a, b) => score(a) - score(b));
+  const old = $('#grGal'); if (old) old.remove();
+  const w = document.createElement('div'); w.id = 'grGal'; w.className = 'rmd-back'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.dataset.noi18n = '';
+  w.innerHTML = `<div class="rmd glass gal"><button class="rmd-x" aria-label="${EN ? 'Close' : 'إغلاق'}">✕</button><h3>🎨 ${EN ? 'Stickers to share' : 'ملصقات للمشاركة'}</h3>
+    <p class="gal-tip">${EN ? 'Tap a sticker to send it to friends' : 'اضغط على أي ملصق لإرساله إلى أصدقائك'}</p>
+    <div class="gal-grid">${list.map(it => `<button class="gal-it${score(it) === 0 ? ' now' : ''}" data-id="${esc(it.id)}"><img src="img/stickers/${esc(it.id)}.png" alt="${esc(it.ar || '')}" loading="lazy"></button>`).join('')}</div></div>`;
+  document.body.appendChild(w);
+  w.addEventListener('click', async e => {
+    if (e.target === w || e.target.closest('.rmd-x')) return w.remove();
+    const b = e.target.closest('.gal-it'); if (!b) return;
+    try { const blob = await (await fetch('img/stickers/' + b.dataset.id + '.png')).blob(); await grShareFile(blob, 'rawd-' + b.dataset.id + '.png'); } catch (x) {}
+  });
+}
 function grWrap(x, text, maxW) { const words = String(text).split(/\s+/), L = []; let line = '';
   for (const w of words) { const t = line ? line + ' ' + w : w; if (x.measureText(t).width > maxW && line) { L.push(line); line = w; } else line = t; }
   if (line) L.push(line); return L; }
 function grLoadImg(u) { return new Promise(res => { if (!u) return res(null); const i = new Image(); i.crossOrigin = 'anonymous';
   i.onload = () => res(i); i.onerror = () => { if (i.src.indexOf('http') === 0) return res(null); i.src = grRemote(u); }; i.src = grLocal(u); }); }
-async function grImage(r) {   // صورة مربعة بأسلوب الملصقات للمشاركة
+async function grImage(r) {   // صورة مربعة يغلب عليها الملصق، والنص قصير تحته
   const im = await grLoadImg(r.m.img), SZ = 1080, cv = document.createElement('canvas'); cv.width = cv.height = SZ;
   const x = cv.getContext('2d'), txt = grTxt(r.m), F = getComputedStyle(document.body).getPropertyValue('--qf').trim() || 'Q1';
-  const bg = x.createRadialGradient(SZ / 2, SZ * .3, 60, SZ / 2, SZ / 2, SZ * .8); bg.addColorStop(0, '#1a3778'); bg.addColorStop(.55, '#0b1d48'); bg.addColorStop(1, '#050d24');
+  const bg = x.createRadialGradient(SZ / 2, SZ * .35, 80, SZ / 2, SZ / 2, SZ * .8); bg.addColorStop(0, '#1d3c80'); bg.addColorStop(.55, '#0b1d48'); bg.addColorStop(1, '#050d24');
   x.fillStyle = bg; x.fillRect(0, 0, SZ, SZ);
-  x.strokeStyle = '#d9b15c'; x.lineWidth = 6; x.strokeRect(36, 36, SZ - 72, SZ - 72); x.lineWidth = 2; x.strokeRect(52, 52, SZ - 104, SZ - 104);
+  x.fillStyle = 'rgba(233,207,140,.07)'; for (let i = 0; i < 26; i++) { x.beginPath(); x.arc((i * 397) % SZ, (i * 263) % SZ, 3 + (i % 4), 0, 7); x.fill(); }
+  x.strokeStyle = '#d9b15c'; x.lineWidth = 6; x.strokeRect(30, 30, SZ - 60, SZ - 60); x.lineWidth = 2; x.strokeRect(46, 46, SZ - 92, SZ - 92);
   x.textAlign = 'center'; x.textBaseline = 'middle'; x.direction = EN ? 'ltr' : 'rtl';
-  if (im) x.drawImage(im, SZ / 2 - 260, 70, 520, 520);
-  else { x.font = '220px "Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif'; x.fillText(r.m.st || '✨', SZ / 2, 270);
-    x.fillStyle = '#e9cf8c'; x.font = 'bold 40px system-ui, sans-serif'; x.fillText(grName(r.occ), SZ / 2, 440); }
-  const box = im ? 330 : 420, y1 = im ? 610 : 520; let fs = EN ? (im ? 44 : 52) : (im ? 54 : 64), L;
-  x.fillStyle = '#f6e7bd';
-  do { x.font = (EN ? fs + 'px system-ui, sans-serif' : fs + 'px ' + F + ', "Traditional Arabic", serif'); L = grWrap(x, txt, SZ - 200); fs -= 4; } while (L.length * fs * 1.7 > box && fs > 28);
-  const lh = (fs + 4) * 1.7, y0 = y1 + (box - L.length * lh) / 2 + lh / 2;
+  let y1, box;
+  if (im) { x.drawImage(im, SZ / 2 - 370, 60, 740, 740); y1 = 800; box = 190; }
+  else { x.font = '300px "Noto Color Emoji","Apple Color Emoji","Segoe UI Emoji",sans-serif'; x.fillText(r.m.st || '✨', SZ / 2, 330);
+    x.fillStyle = '#e9cf8c'; x.font = 'bold 54px system-ui, sans-serif'; x.fillText(grName(r.occ), SZ / 2, 600); y1 = 680; box = 300; }
+  let fs = EN ? 40 : 48, L; x.fillStyle = '#f6e7bd';
+  do { x.font = (EN ? fs + 'px system-ui, sans-serif' : fs + 'px ' + F + ', "Traditional Arabic", serif'); L = grWrap(x, txt, SZ - 180); fs -= 2; } while (L.length * fs * 1.7 > box && fs > 24);
+  const lh = (fs + 2) * 1.7, y0 = y1 + (box - L.length * lh) / 2 + lh / 2;
   L.forEach((l, i) => x.fillText(l, SZ / 2, y0 + i * lh));
-  x.fillStyle = '#d9b15c'; x.font = 'bold 34px system-ui, sans-serif'; x.direction = 'rtl';
-  x.fillText(EN ? 'Rawd adh-Dhikr · Mishkat' : 'روض الذكر · مشكاة', SZ / 2, SZ - 110);
+  x.fillStyle = '#d9b15c'; x.font = 'bold 30px system-ui, sans-serif'; x.direction = 'rtl';
+  x.fillText(EN ? 'Rawd adh-Dhikr · Mishkat' : 'روض الذكر · مشكاة', SZ / 2, SZ - 72);
   return new Promise(res => cv.toBlob(res, 'image/png'));
 }
 async function grAction(act, k) {
@@ -601,16 +643,17 @@ async function grAction(act, k) {
     try { await navigator.clipboard.writeText(grShareText(r)); } catch (e) { const ta = document.createElement('textarea'); ta.value = grShareText(r); document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
     toast(EN ? 'Copied' : 'تم النسخ');
   } else if (act === 'share') {
-    if (navigator.share) { try { await navigator.share({ text: grShareText(r) }); } catch (e) {} } else grAction('copy', k);
+    if (!(await grShareText2(grShareText(r)))) grAction('copy', k);
   } else if (act === 'img') {
     try { await document.fonts.ready; } catch (e) {}
-    const blob = await grImage(r), f = new File([blob], 'rawd-' + r.occ.key + '.png', { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], text: grShareText(r) }); } catch (e) {} return; }
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast(EN ? 'Image saved' : 'تم حفظ الصورة');
+    await grShareFile(await grImage(r), 'rawd-' + r.occ.key + '.png', grShareText(r));
+  } else if (act === 'stk') {
+    const im = await grLoadImg(r.m.img); if (!im) return;
+    const cv = document.createElement('canvas'); cv.width = im.naturalWidth || 512; cv.height = im.naturalHeight || 512; cv.getContext('2d').drawImage(im, 0, 0);
+    await grShareFile(await new Promise(res => cv.toBlob(res, 'image/png')), 'rawd-sticker-' + r.occ.key + '.png');
   }
 }
-document.addEventListener('click', e => { const b = e.target.closest('[data-gr]'); if (b) grAction(b.dataset.gr, b.dataset.k); });
+document.addEventListener('click', e => { const b = e.target.closest('[data-gr]'); if (!b) return; if (b.dataset.gr === 'gal') return grGallery(); grAction(b.dataset.gr, b.dataset.k); });
 
 /* ---------- التذكير المسبق بالمناسبات (نافذة عند فتح التطبيق) ---------- */
 const GR_ACK = 'rawd-remind-ack', GR_SHOWN = 'rawd-remind-shown';
@@ -623,11 +666,16 @@ function grStarts(o, x) {   // هل تبدأ المناسبة في هذا الي
 function grUpcoming() {
   if (!GR.bank) return [];
   const tz = prayLoc().tz, now = Date.now(); let ack = {}; try { ack = JSON.parse(localStorage.getItem(GR_ACK) || '{}'); } catch (e) {}
-  const out = [], seen = {};
+  const out = [], seen = {}, C = grContext(new Date(now)), t = C.M.now, tm = v => { const k = GR_TK[v]; if (k === 'start') return 0; if (k === 'end') return 1440;
+    const mm = /^(\d{1,2}):(\d{2})$/.exec(v); if (mm) return +mm[1] * 60 + +mm[2]; return C.M[k] ?? 0; };
   for (const o of GR.bank.occ) {
     const R = parseInt(o.rem, 10); if (!(R > 0) || seen[o.key]) continue;
-    for (let d = 1; d <= R; d++) {
+    // نافذة التذكير: من «يبدأ التذكير من وقت» في أول أيامه، حتى «ينتهي التذكير يوم المناسبة عند» في يوم المناسبة
+    for (let d = 0; d <= R; d++) {
       const x = grDay(tz, new Date(now + d * 864e5)); if (!grStarts(o, x)) continue;
+      if (d > 1 && grStarts(o, grDay(tz, new Date(now)))) break;
+      if (d === 0 && !(o.re && C.ok && t < tm(o.re))) break;
+      if (d === R && o.rs && t < tm(o.rs)) break;
       const id = o.key + '|' + x.ymd; if (ack[id]) break;
       const list = GR.bank.msg.filter(m => m.key === o.key && m.type === 'تذكير' && (EN ? m.en : m.ar));
       if (!list.length) break;
@@ -636,11 +684,13 @@ function grUpcoming() {
   }
   return out.sort((a, b) => a.d - b.d || (+b.occ.pr || 0) - (+a.occ.pr || 0));
 }
-const grWhen = d => EN ? (d === 1 ? 'Tomorrow' : d === 2 ? 'In two days' : 'In ' + d + ' days') : (d === 1 ? 'غدًا' : d === 2 ? 'بعد يومين' : 'بعد ' + d + ' أيام');
+const grWhen = d => d === 0 ? (EN ? 'Today' : 'اليوم') : EN ? (d === 1 ? 'Tomorrow' : d === 2 ? 'In two days' : 'In ' + d + ' days') : (d === 1 ? 'غدًا' : d === 2 ? 'بعد يومين' : 'بعد ' + d + ' أيام');
 function showReminders(force) {
-  if (!force) { let sh = false; try { sh = sessionStorage.getItem(GR_SHOWN); } catch (e) {} if (!S.settings.remindPopup || sh || $('#cover')) return; }
-  const list = grUpcoming(); if (!list.length) { if (force) toast(EN ? 'No upcoming reminders' : 'لا توجد تذكيرات قادمة'); return; }
-  try { sessionStorage.setItem(GR_SHOWN, '1'); } catch (e) {}
+  if (!force && (!S.settings.remindPopup || $('#cover') || $('#grRemind'))) return;
+  let shown = []; try { shown = JSON.parse(sessionStorage.getItem(GR_SHOWN) || '[]'); if (!Array.isArray(shown)) shown = []; } catch (e) {}
+  let list = grUpcoming(); if (!force) list = list.filter(r => !shown.includes(r.id));   // في نفس الجلسة لا يظهر إلا الجديد
+  if (!list.length) { if (force) toast(EN ? 'No upcoming reminders' : 'لا توجد تذكيرات قادمة'); return; }
+  try { sessionStorage.setItem(GR_SHOWN, JSON.stringify(shown.concat(list.map(r => r.id)))); } catch (e) {}
   const old = $('#grRemind'); if (old) old.remove();
   const w = document.createElement('div'); w.id = 'grRemind'; w.className = 'rmd-back'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.dataset.noi18n = '';
   w.innerHTML = `<div class="rmd glass"><button class="rmd-x" aria-label="${EN ? 'Close' : 'إغلاق'}">✕</button><h3>🔔 ${EN ? 'Reminder' : 'تذكير'}</h3>
@@ -667,7 +717,69 @@ function greetInit() {
   }).catch(() => {});
   const tryShow = () => { if ($('#cover')) return setTimeout(tryShow, 1000); setTimeout(() => showReminders(), 1200); };
   setTimeout(tryShow, 1500);
+  setInterval(() => { if (!document.hidden) showReminders(); }, 5 * 60000);   // يظهر التذكير عند دخول وقته والتطبيق مفتوح
   setInterval(() => { if (GR.bank && grRefresh() && /^#?\/?$|^#\/home/.test(location.hash) && S.settings.showGreet) route(); }, 60000);
+}
+
+/* ======================================================================
+   «مشكاة النبوة»: حديث اليوم — نفس أحاديث موقع مشكاة وصورها
+   النصوص مدمجة (hadith-data.js)، والتفعيل والمناسبة من ورقة «مشكاة النبوة»، والصور من موقع مشكاة
+   ====================================================================== */
+const HD = { all: window.MK_HADITH || [], ov: null, cur: null, day: 0 };
+function hdFetch() {
+  const u = 'https://docs.google.com/spreadsheets/d/' + GR_SHEET + '/gviz/tq?tqx=out:csv&headers=1&sheet=' + encodeURIComponent('مشكاة النبوة') + '&_=' + Math.floor(Date.now() / 300000);
+  return fetch(u, { cache: 'no-store' }).then(r => { if (!r.ok) throw 0; return r.text(); }).then(t => {
+    const rows = grCsv(t), h = (rows[0] || []).map(x => String(x).trim()), iN = h.indexOf('الرقم'), iO = h.indexOf('المناسبة'), iE = h.indexOf('مفعّل'), o = {};
+    if (iN < 0 || iE < 0) throw 0;
+    rows.slice(1).forEach(r => { const n = parseInt(r[iN], 10); if (n) o[n] = { on: String(r[iE] || '').trim(), occ: iO < 0 ? null : String(r[iO] || '').trim() }; });
+    return o;
+  });
+}
+function hdList() {
+  return HD.all.map(h => { const o = HD.ov && HD.ov[h.n];
+    return { h, on: o && o.on ? !/^(لا|no|false|0)$/i.test(o.on) : h.on === 'نعم', occ: o && o.occ != null ? o.occ : h.occ }; }).filter(x => x.on);
+}
+function hdDay() { const [y, m, d] = ymdIn(prayLoc().tz, new Date()); return Math.floor(Date.UTC(y, m - 1, d) / 864e5); }
+function hdPerm(n) { const a = [...Array(n).keys()]; let s = 20261117;
+  for (let j = n - 1; j > 0; j--) { s = (s * 1103515245 + 12345) % 2147483648; const k = s % (j + 1); [a[j], a[k]] = [a[k], a[j]]; } return a; }
+function hdToday() {   // نفس حديث اليوم في الموقع والتطبيق؛ وأحاديث المواسم تظهر في مواسمها
+  const L = hdList(); if (!L.length) return null;
+  const d = hdDay(), c = grContext(new Date());
+  const act = GR.bank ? GR.bank.occ.filter(o => (String(o.hm).trim() || o.d1 || o.wd) && grActive(Object.assign({}, o, { t1: '', t2: '' }), c)).map(o => o.key) : [];
+  const occ = L.filter(x => String(x.occ || '').split(/[،,\s]+/).some(k => k && act.includes(k)));
+  if (occ.length) return occ[d % occ.length].h;
+  const SEAS = /(^|,)\s*(ramadan|ramadan_start|last_ten|dhulhijja_ten|arafah|ashura|suhur|iftar)\s*(,|$)/;
+  let Rr = L.filter(x => !SEAS.test(String(x.occ || ''))); if (!Rr.length) Rr = L;
+  return Rr[hdPerm(Rr.length)[d % Rr.length]].h;
+}
+const hdImg = h => GR_SITE + 'img/hadith/' + String(h.n).padStart(3, '0') + '.jpg';
+const hdMeta = h => [h.nar, h.src + (h.grade ? ' (' + h.grade + ')' : '')].filter(Boolean).join(' · ');
+function hadithCard() {
+  if (!S.settings.showHadith) return '';
+  const day = hdDay(); if (!HD.cur || HD.day !== day) { HD.cur = hdToday(); HD.day = day; }
+  const h = HD.cur; if (!h) return '';
+  return `<section class="glass hcard" data-noi18n><span class="lbl">✦ ${EN ? 'Mishkat an-Nubuwwah · Hadith of the day' : 'مشكاة النبوة · حديث اليوم'}</span>
+    <figure class="h-fig"><img src="${hdImg(h)}" alt="${esc(h.head + ': ' + h.text)}" loading="lazy" crossorigin="anonymous" onerror="this.parentNode.classList.add('noimg')">
+    <figcaption class="h-txt" lang="ar" dir="rtl"><b>${esc(h.head)}:</b> «${esc(h.text)}»<small>${esc(hdMeta(h))}</small></figcaption></figure>
+    <div class="gbtns"><button class="btn btn-gold btn-sm" data-hd="img">${EN ? '🖼 Share image' : '🖼 مشاركة الصورة'}</button>
+    <button class="btn btn-ghost btn-sm" data-hd="text">${EN ? '↗ Share text' : '↗ مشاركة النص'}</button>
+    <button class="btn btn-ghost btn-sm" data-hd="next">${EN ? '↻ Another' : '↻ حديث آخر'}</button></div></section>`;
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-hd]'); if (!b || !HD.cur) return; const h = HD.cur;
+  if (b.dataset.hd === 'next') { const L = hdList(); if (L.length < 2) return; let x; do { x = L[Math.floor(Math.random() * L.length)].h; } while (x === h);
+    HD.cur = x; const el = view.querySelector('.hcard'); if (el) { const t = document.createElement('div'); t.innerHTML = hadithCard(); el.replaceWith(t.firstElementChild); } }
+  else if (b.dataset.hd === 'text') { const t = h.head + ': «' + h.text + '»\n' + hdMeta(h) + '\n\n— ' + (EN ? 'Rawd adh-Dhikr · Mishkat' : 'روض الذكر · مشكاة') + '\n' + GR_SITE;
+    if (!(await grShareText2(t))) { try { await navigator.clipboard.writeText(t); toast(EN ? 'Copied' : 'تم النسخ'); } catch (x) {} } }
+  else if (b.dataset.hd === 'img') {
+    try { const r = await fetch(hdImg(h)); if (!r.ok) throw 0; await grShareFile(await r.blob(), 'mishkat-hadith-' + h.n + '.jpg'); }
+    catch (x) { toast(EN ? 'The image needs an internet connection' : 'صورة الحديث تحتاج اتصالًا بالإنترنت'); }
+  }
+});
+function hadithInit() {
+  try { HD.ov = JSON.parse(localStorage.getItem('rawd-hadith-v1') || 'null'); } catch (e) {}
+  hdFetch().then(o => { const s = JSON.stringify(o); if (s === JSON.stringify(HD.ov)) return; HD.ov = o;
+    try { localStorage.setItem('rawd-hadith-v1', s); } catch (e) {} HD.cur = null; if (/^#?\/?$|^#\/home/.test(location.hash)) route(); }).catch(() => {});
 }
 
 function prayerCard() {
@@ -701,6 +813,7 @@ function renderHome() {
     ${updBanner()}
     ${prayerCard()}
     ${greetCards()}
+    ${hadithCard()}
     ${suggestCard(sg)}
     ${resumeCard()}
     ${S.settings.showStats ? `<div class="stats">
@@ -1323,6 +1436,7 @@ function renderSettings() {
       ${sw('showStats', 'إظهار الإحصاءات', 'الأذكار المكتملة، مجموع التسبيح، الأيام المتتالية')}
       ${sw('showPrayer', 'إظهار الصلاة القادمة', 'اسم الصلاة التالية والوقت المتبقي')}
       ${sw('showGreet', EN ? 'Greetings & timely tips' : 'التهاني وتوصيات الوقت', EN ? 'Occasion greetings and recommendations for the current time' : 'تهنئة المناسبة وتوصية الوقت الحالي (من بنك مشكاة)')}
+      ${sw('showHadith', EN ? 'Hadith of the day' : 'مشكاة النبوة (حديث اليوم)', EN ? 'A hadith each day, as a shareable image' : 'حديث نبوي كل يوم في صورة قابلة للمشاركة')}
       ${sw('remindPopup', EN ? 'Reminder window on opening' : 'نافذة التذكير عند فتح التطبيق', EN ? 'Reminds you a day or more before occasions such as fasting days' : 'تذكير قبل المناسبات بيوم أو أكثر، كأيام الصيام')}
       <div class="set-row"><div class="t"><b>${EN ? 'Upcoming reminders' : 'التذكيرات القادمة'}</b><small>${EN ? 'Show them now' : 'عرضها الآن'}</small></div><button class="btn btn-ghost btn-sm" id="grShowRem">🔔 ${EN ? 'Show' : 'عرض'}</button></div>
       <div class="set-row"><div class="t"><b>مواقيت الصلاة</b><small>المدينة: ${esc(prayLoc().name)}</small></div><a class="btn btn-ghost btn-sm" href="#/prayer">🕌 الإعدادات</a></div>
@@ -1385,6 +1499,7 @@ function renderSettings() {
 /* ---------- boot ---------- */
 applySettings();
 greetInit();
+hadithInit();
 route();
 (() => {
   const cv = $('#cover'); if (!cv) return;
