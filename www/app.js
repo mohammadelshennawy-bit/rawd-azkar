@@ -29,7 +29,16 @@ S.fav = S.fav || []; S.counts = S.counts || {}; S.days = S.days || {};
 S.tasbih = Object.assign({ p: 0, total: 0, counts: {}, targets: {}, zfs: 1 }, S.tasbih || {});
 S.pray = Object.assign({ city: 'cairo', method: 'egypt', asr: 1, h24: false, lat: null, lng: null, tz: null, label: '' }, S.pray || {});
 S.lastPos = S.lastPos || {};
-if (S.day !== today()) { S.day = today(); const keep = {}; for (const id in S.counts) if (ITEM[id] && TIMED_CATS.includes(ITEM[id].cat)) keep[id] = S.counts[id]; S.counts = keep; }
+function dayRollover() {   // بداية يوم جديد: تُصفَّر الأبواب العادية (أبواب الوقت تتبع المواقيت)
+  if (S.day === today()) return false;
+  S.day = today(); const keep = {}; let ch = false;
+  for (const id in S.counts) { if (ITEM[id] && TIMED_CATS.includes(ITEM[id].cat)) keep[id] = S.counts[id]; else ch = true; }
+  S.counts = keep;
+  if (S.last && !TIMED_CATS.includes(S.last.cat)) { delete S.last; ch = true; }
+  for (const k in S.lastPos) if (!TIMED_CATS.includes(k.split('|')[0])) delete S.lastPos[k];
+  return ch;
+}
+dayRollover();
 S.slots = S.slots || {};
 S.rem = Object.assign({ morning: false, evening: false, sleep: false, mOff: 30, eOff: 30, sleepAt: '22:30' }, S.rem || {});
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
@@ -381,11 +390,13 @@ const RESET_PLAN = [
 ];
 function checkPrayerReset() {   // يُصفّر العدّادات عند دخول الوقت المناسب لكل باب
   let lp; try { lp = lastPrayers(); } catch (e) { return false; }
-  let changed = false;
+  let changed = dayRollover();
   RESET_PLAN.forEach(([k, items, cat]) => {
     if (S.slots[k] === lp[k].id) return;
     if (S.slots[k]) { items().forEach(x => { if (S.counts[x.id]) { delete S.counts[x.id]; changed = true; } });
-      if (S.last && S.last.cat === cat) { delete S.last; changed = true; } }   // «تابع من حيث توقفت» يبدأ من جديد
+      if (S.last && S.last.cat === cat) { delete S.last; changed = true; }   // «تابع من حيث توقفت» يبدأ من جديد
+      for (const p in S.lastPos) if (p.split('|')[0] === cat) delete S.lastPos[p];   // وضع الصفحات يبدأ من أول ذكر
+      if (renderReader._last && renderReader._last.id.split('|')[0] === cat) renderReader._last = null; }
     S.slots[k] = lp[k].id;
   });
   save(); return changed;
@@ -406,7 +417,16 @@ function suggestCard(list) {
       <span class="t"><b>${esc(x.c.name)}</b>${x.g ? `<small>${esc(x.g)}</small>` : ''}<div class="bar"><i style="width:${x.n ? x.d / x.n * 100 : 0}%"></i></div></span>
       <span class="st">${x.done ? '✓ أتممته' : `${x.d}/${x.n}`}</span></a>`).join('')}</div>`;
 }
-setInterval(() => { if (checkPrayerReset() && /^#\/?($|\?|home|s\/(prayer|morning|evening|sleep)|r\/(prayer|morning|evening|sleep))/.test(CUR)) route(); }, 30000);
+// يُفحص كل 30 ثانية، وفور عودة التطبيق من الخلفية (أندرويد يوقف المؤقتات في الخلفية)
+function resetTick() {
+  try { const raw = localStorage.getItem(KEY); if (raw) { const o = JSON.parse(raw); if (o && o.slots) { S.slots = o.slots; S.day = o.day; S.counts = o.counts || {}; } } } catch (e) {}   // أحدث حالة محفوظة
+  if (checkPrayerReset() && /^#\/?($|\?|home|s\/|r\/|sections)/.test(CUR || '#/')) route();
+}
+setInterval(resetTick, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) resetTick(); });
+window.addEventListener('focus', resetTick);
+window.addEventListener('pageshow', resetTick);
+try { const CA = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App; if (CA) { CA.addListener('resume', resetTick); CA.addListener('appStateChange', st => { if (st && st.isActive) resetTick(); }); } } catch (e) {}
 
 /* ---------- تنبيه «يتوفر إصدار أحدث» ---------- */
 // الرقم يُكتب تلقائيًا من وسم الإصدار عند النشر (نفس نمط appver)
