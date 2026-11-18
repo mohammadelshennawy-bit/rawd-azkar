@@ -556,7 +556,7 @@ function grCard(kind, r) {
   const m = r.m, emo = esc(m.st || '✨'), canImg = true;
   const stk = m.img ? `<img class="gs-img" src="${esc(grLocal(m.img))}" data-remote="${esc(grRemote(m.img))}" alt="" loading="lazy" onerror="if(this.dataset.remote&&this.src!==this.dataset.remote){this.src=this.dataset.remote}else{this.outerHTML='<span class=gs-emo>${emo}</span>'}">` : `<span class="gs-emo" aria-hidden="true">${emo}</span>`;
   return `<section class="glass gcard g-${kind}" data-noi18n><span class="lbl">${kind === 'g' ? '🎉' : '✦'} ${esc(grName(r.occ))}</span>
-    <div class="gbody">${stk}<p class="gtxt"${EN ? ' dir="auto"' : ''}>${esc(grTxt(m))}</p>${!EN && m.ev ? `<small class="gev">${esc(m.ev)}</small>` : ''}</div>
+    <div class="gbody">${stk}<p class="gtxt"${EN ? ' dir="auto"' : ''}>${esc(grTxt(m))}</p>${evT(m) ? `<small class="gev">${esc(evT(m))}</small>` : ''}</div>
     <div class="gbtns">${r.n > 1 ? `<button class="btn btn-ghost btn-sm" data-gr="next" data-k="${kind}">${EN ? '↻ Another' : '↻ عبارة أخرى'}</button>` : ''}
       <button class="btn btn-ghost btn-sm" data-gr="copy" data-k="${kind}">${EN ? '⧉ Copy' : '⧉ نسخ'}</button>
       <button class="btn btn-ghost btn-sm" data-gr="share" data-k="${kind}">${EN ? '↗ Share' : '↗ مشاركة'}</button>
@@ -695,7 +695,7 @@ function showReminders(force) {
   const w = document.createElement('div'); w.id = 'grRemind'; w.className = 'rmd-back'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true'); w.dataset.noi18n = '';
   w.innerHTML = `<div class="rmd glass"><button class="rmd-x" aria-label="${EN ? 'Close' : 'إغلاق'}">✕</button><h3>🔔 ${EN ? 'Reminder' : 'تذكير'}</h3>
     ${list.map(r => `<div class="rmd-it">${r.m.img ? `<img src="${esc(grLocal(r.m.img))}" onerror="this.src='${esc(grRemote(r.m.img))}';this.onerror=null" alt="">` : `<span class="rmd-emo">${esc(r.m.st || '🔔')}</span>`}
-      <div><b>${esc(grName(r.occ))} <em>— ${grWhen(r.d)}</em></b><p>${esc(grTxt(r.m))}</p>${!EN && r.m.ev ? `<small>${esc(r.m.ev)}</small>` : ''}</div></div>`).join('')}
+      <div><b>${esc(grName(r.occ))} <em>— ${grWhen(r.d)}</em></b><p>${esc(grTxt(r.m))}</p>${evT(r.m) ? `<small>${esc(evT(r.m))}</small>` : ''}</div></div>`).join('')}
     <div class="rmd-btns"><button class="btn btn-gold" data-r="ok">${EN ? '✓ Got it — don’t remind me again' : '✓ تلقّيت التذكير — لا تكرّره'}</button><button class="btn btn-ghost" data-r="later">${EN ? 'Later' : 'لاحقًا'}</button></div>
     <button class="rmd-off" data-r="off">${EN ? 'Don’t show the reminder window again' : 'عدم إظهار نافذة التذكير مرة أخرى'}</button></div>`;
   document.body.appendChild(w);
@@ -725,25 +725,39 @@ function greetInit() {
    «مشكاة النبوة»: حديث اليوم — نفس أحاديث موقع مشكاة وصورها
    النصوص مدمجة (hadith-data.js)، والتفعيل والمناسبة من ورقة «مشكاة النبوة»، والصور من موقع مشكاة
    ====================================================================== */
+  /* ترجمة «الدليل» إلى الإنجليزية: أسماء الكتب والدرجات ومراجع الآيات؛ وإن بقي نص عربي لا يُعرض */
+var SURA = 'الفاتحة البقرة آل_عمران النساء المائدة الأنعام الأعراف الأنفال التوبة يونس هود يوسف الرعد إبراهيم الحجر النحل الإسراء الكهف مريم طه الأنبياء الحج المؤمنون النور الفرقان الشعراء النمل القصص العنكبوت الروم لقمان السجدة الأحزاب سبأ فاطر يس الصافات ص الزمر غافر فصلت الشورى الزخرف الدخان الجاثية الأحقاف محمد الفتح الحجرات ق الذاريات الطور النجم القمر الرحمن الواقعة الحديد المجادلة الحشر الممتحنة الصف الجمعة المنافقون التغابن الطلاق التحريم الملك القلم الحاقة المعارج نوح الجن المزمل المدثر القيامة الإنسان المرسلات النبأ النازعات عبس التكوير الانفطار المطففين الانشقاق البروج الطارق الأعلى الغاشية الفجر البلد الشمس الليل الضحى الشرح التين العلق القدر البينة الزلزلة العاديات القارعة التكاثر العصر الهمزة الفيل قريش الماعون الكوثر الكافرون النصر المسد الإخلاص الفلق الناس'.split(' ').map(function (x) { return x.replace(/_/g, ' '); });
+var EVB = [['صحيح الجامع', 'Sahih al-Jamiʿ'], ['صحيح الترغيب', 'Sahih at-Targhib'], ['السلسلة الصحيحة', 'as-Silsilah as-Sahihah'], ['فتح الباري', 'Fath al-Bari'],
+  ['وصححه الألباني في', 'graded sahih by al-Albani in'], ['وحسّنه الألباني في', 'graded hasan by al-Albani in'], ['وصححه الألباني', 'graded sahih by al-Albani'], ['وحسّنه الألباني', 'graded hasan by al-Albani'], ['وحسنه الألباني', 'graded hasan by al-Albani'],
+  ['البخاري', 'al-Bukhari'], ['مسلم', 'Muslim'], ['الترمذي', 'at-Tirmidhi'], ['النسائي', 'an-Nasa’i'], ['أبو داود', 'Abu Dawud'], ['ابن ماجه', 'Ibn Majah'], ['أحمد', 'Ahmad'], ['الحاكم', 'al-Hakim'], ['ابن حبان', 'Ibn Hibban'], ['البيهقي', 'al-Bayhaqi'], ['الطبراني', 'at-Tabarani']];
+function evEn(ev) {
+  var t = String(ev || '').replace(/﴿[^﴾]*﴾\s*/g, '').replace(/\[([^\]:]+):\s*([\d–\-]+)\]/g, function (m, s, v) { var i = SURA.indexOf(s.trim()); return i < 0 ? m : '[Qur’an ' + (i + 1) + ':' + v + ']'; });
+  EVB.forEach(function (p) { t = t.split(p[0]).join(p[1]); });
+  t = t.replace(/،/g, ',').replace(/\s+و(?=[A-Za-z])/g, ' and ').replace(/^[\s,—-]+|[\s,—-]+$/g, '');
+  return /[؀-ۿ]/.test(t) ? '' : t;
+}
+const evT = m => EN ? evEn(m.ev) : (m.ev || '');
 const HD = { all: window.MK_HADITH || [], ov: null, cur: null, day: 0 };
 function hdFetch() {
   const u = 'https://docs.google.com/spreadsheets/d/' + GR_SHEET + '/gviz/tq?tqx=out:csv&headers=1&sheet=' + encodeURIComponent('مشكاة النبوة') + '&_=' + Math.floor(Date.now() / 300000);
   return fetch(u, { cache: 'no-store' }).then(r => { if (!r.ok) throw 0; return r.text(); }).then(t => {
-    const rows = grCsv(t), h = (rows[0] || []).map(x => String(x).trim()), iN = h.indexOf('الرقم'), iO = h.indexOf('المناسبة'), iE = h.indexOf('مفعّل'), o = {};
+    const rows = grCsv(t), h = (rows[0] || []).map(x => String(x).trim()), iN = h.indexOf('الرقم'), iO = h.indexOf('المناسبة'), iE = h.indexOf('مفعّل'), iD = h.indexOf('تاريخ محدد'), o = {};
     if (iN < 0 || iE < 0) throw 0;
-    rows.slice(1).forEach(r => { const n = parseInt(r[iN], 10); if (n) o[n] = { on: String(r[iE] || '').trim(), occ: iO < 0 ? null : String(r[iO] || '').trim() }; });
+    rows.slice(1).forEach(r => { const n = parseInt(r[iN], 10); if (n) o[n] = { on: String(r[iE] || '').trim(), occ: iO < 0 ? null : String(r[iO] || '').trim(), pin: iD < 0 ? '' : String(r[iD] || '').trim() }; });
     return o;
   });
 }
 function hdList() {
   return HD.all.map(h => { const o = HD.ov && HD.ov[h.n];
-    return { h, on: o && o.on ? !/^(لا|no|false|0)$/i.test(o.on) : h.on === 'نعم', occ: o && o.occ != null ? o.occ : h.occ }; }).filter(x => x.on);
+    return { h, on: o && o.on ? !/^(لا|no|false|0)$/i.test(o.on) : h.on === 'نعم', occ: o && o.occ != null ? o.occ : h.occ, pin: (o && o.pin) || '' }; }).filter(x => x.on || x.pin);
 }
 function hdDay() { const [y, m, d] = ymdIn(prayLoc().tz, new Date()); return Math.floor(Date.UTC(y, m - 1, d) / 864e5); }
 function hdPerm(n) { const a = [...Array(n).keys()]; let s = 20261117;
   for (let j = n - 1; j > 0; j--) { s = (s * 1103515245 + 12345) % 2147483648; const k = s % (j + 1); [a[j], a[k]] = [a[k], a[j]]; } return a; }
 function hdToday() {   // نفس حديث اليوم في الموقع والتطبيق؛ وأحاديث المواسم تظهر في مواسمها
-  const L = hdList(); if (!L.length) return null;
+  const All = hdList(), [yy, mm, dd] = ymdIn(prayLoc().tz, new Date()), ymd = yy + '-' + String(mm).padStart(2, '0') + '-' + String(dd).padStart(2, '0');
+  const pin = All.find(x => String(x.pin).split(/[،,\s]+/).includes(ymd)); if (pin) return pin.h;   // حديث مثبّت لهذا التاريخ من لوحة المدير
+  const L = All.filter(x => x.on); if (!L.length) return null;
   const d = hdDay(), c = grContext(new Date());
   const act = GR.bank ? GR.bank.occ.filter(o => (String(o.hm).trim() || o.d1 || o.wd) && grActive(Object.assign({}, o, { t1: '', t2: '' }), c)).map(o => o.key) : [];
   const occ = L.filter(x => String(x.occ || '').split(/[،,\s]+/).some(k => k && act.includes(k)));
@@ -753,24 +767,27 @@ function hdToday() {   // نفس حديث اليوم في الموقع والت�
   let Rr = L.filter(x => !SEAS.test(String(x.occ || ''))); if (!Rr.length) Rr = L;
   return Rr[hdPerm(Rr.length)[d % Rr.length]].h;
 }
-const hdImg = h => GR_SITE + 'img/hadith/' + String(h.n).padStart(3, '0') + '.jpg';
-const hdMeta = h => [h.nar, h.src + (h.grade ? ' (' + h.grade + ')' : '')].filter(Boolean).join(' · ');
+const hdEN = h => EN && !!h.ten;
+const hdImg = h => GR_SITE + 'img/hadith/' + (hdEN(h) ? 'en/' : '') + String(h.n).padStart(3, '0') + '.jpg';
+const hdMeta = h => hdEN(h) ? [h.nen, h.sen + (h.gen ? ' (' + h.gen + ')' : '')].filter(Boolean).join(' · ') : [h.nar, h.src + (h.grade ? ' (' + h.grade + ')' : '')].filter(Boolean).join(' · ');
+const hdText = h => hdEN(h) ? h.hen + ': “' + h.ten + '”\n' + hdMeta(h) + '\n\n' + h.head + ': «' + h.text + '»' : h.head + ': «' + h.text + '»\n' + hdMeta(h);
 function hadithCard() {
   if (!S.settings.showHadith) return '';
   const day = hdDay(); if (!HD.cur || HD.day !== day) { HD.cur = hdToday(); HD.day = day; }
   const h = HD.cur; if (!h) return '';
   return `<section class="glass hcard" data-noi18n><span class="lbl">✦ ${EN ? 'Mishkat an-Nubuwwah · Hadith of the day' : 'مشكاة النبوة · حديث اليوم'}</span>
-    <figure class="h-fig"><img src="${hdImg(h)}" alt="${esc(h.head + ': ' + h.text)}" loading="lazy" crossorigin="anonymous" onerror="this.parentNode.classList.add('noimg')">
-    <figcaption class="h-txt" lang="ar" dir="rtl"><b>${esc(h.head)}:</b> «${esc(h.text)}»<small>${esc(hdMeta(h))}</small></figcaption></figure>
+    <figure class="h-fig"><img src="${hdImg(h)}" alt="${esc(hdEN(h) ? h.hen + ': ' + h.ten : h.head + ': ' + h.text)}" loading="lazy" crossorigin="anonymous" onerror="this.parentNode.classList.add('noimg')">
+    ${hdEN(h) ? `<figcaption class="h-txt" lang="en" dir="ltr"><b>${esc(h.hen)}:</b> “${esc(h.ten)}”<small>${esc(hdMeta(h))}</small><span class="h-ar" lang="ar" dir="rtl">${esc(h.head)}: «${esc(h.text)}»</span></figcaption>`
+      : `<figcaption class="h-txt" lang="ar" dir="rtl"><b>${esc(h.head)}:</b> «${esc(h.text)}»<small>${esc(hdMeta(h))}</small></figcaption>`}</figure>
     <div class="gbtns"><button class="btn btn-gold btn-sm" data-hd="img">${EN ? '🖼 Share image' : '🖼 مشاركة الصورة'}</button>
     <button class="btn btn-ghost btn-sm" data-hd="text">${EN ? '↗ Share text' : '↗ مشاركة النص'}</button>
     <button class="btn btn-ghost btn-sm" data-hd="next">${EN ? '↻ Another' : '↻ حديث آخر'}</button></div></section>`;
 }
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-hd]'); if (!b || !HD.cur) return; const h = HD.cur;
-  if (b.dataset.hd === 'next') { const L = hdList(); if (L.length < 2) return; let x; do { x = L[Math.floor(Math.random() * L.length)].h; } while (x === h);
+  if (b.dataset.hd === 'next') { const L = hdList().filter(x => x.on); if (L.length < 2) return; let x; do { x = L[Math.floor(Math.random() * L.length)].h; } while (x === h);
     HD.cur = x; const el = view.querySelector('.hcard'); if (el) { const t = document.createElement('div'); t.innerHTML = hadithCard(); el.replaceWith(t.firstElementChild); } }
-  else if (b.dataset.hd === 'text') { const t = h.head + ': «' + h.text + '»\n' + hdMeta(h) + '\n\n— ' + (EN ? 'Rawd adh-Dhikr · Mishkat' : 'روض الذكر · مشكاة') + '\n' + GR_SITE;
+  else if (b.dataset.hd === 'text') { const t = hdText(h) + '\n\n— ' + (EN ? 'Rawd adh-Dhikr · Mishkat' : 'روض الذكر · مشكاة') + '\n' + GR_SITE;
     if (!(await grShareText2(t))) { try { await navigator.clipboard.writeText(t); toast(EN ? 'Copied' : 'تم النسخ'); } catch (x) {} } }
   else if (b.dataset.hd === 'img') {
     try { const r = await fetch(hdImg(h)); if (!r.ok) throw 0; await grShareFile(await r.blob(), 'mishkat-hadith-' + h.n + '.jpg'); }

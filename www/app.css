@@ -307,14 +307,15 @@ body.t-ivory .zcard.done .counter .ring b{color:#1f7a6f}
 .pnext h2 span{font-size:18px;color:var(--ink);font-weight:600}
 .pnext small{color:var(--muted);display:block;line-height:1.2}
 .pcd{font-family:var(--ui);font-size:44px;font-weight:800;letter-spacing:2px;direction:ltr;color:var(--ink);margin:0;line-height:1.05}
-.ptable{margin-top:8px;padding:2px 14px}
-.prow{display:flex;justify-content:space-between;align-items:center;padding:2px 4px;line-height:1.2;min-height:0;border-bottom:1px solid rgba(255,255,255,.08);font-size:17px}
-body.t-ivory .prow{border-color:rgba(0,0,0,.07)}
-.prow:last-child{border:0}
-.prow b{font-family:var(--ui);direction:ltr}
-.prow.next{color:var(--gold-2);font-weight:800}
-.prow.next b{color:var(--gold-2)}
-.prow.cur span::after{content:" • الآن";font-size:12px;color:var(--accent)}
+.pnext{border:1px solid var(--gold)}
+.ptable{margin-top:8px;padding:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.prow{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 4px 9px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.06);line-height:1.15;text-align:center;position:relative}
+body.t-ivory .prow{background:rgba(155,106,31,.07)}
+.prow span{font-size:16px;font-weight:700}
+.prow b{font-family:var(--ui);direction:ltr;font-size:19px;font-weight:800}
+.prow.next{border:2px solid var(--gold);background:linear-gradient(160deg,var(--glass-2),rgba(230,189,106,.18));box-shadow:0 4px 14px rgba(0,0,0,.15)}
+.prow.next,.prow.next b{color:var(--gold-2)}
+.prow.cur::after{content:"الآن";position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;padding:1px 8px;border-radius:9px;background:var(--accent);color:#fff}
 
 .chips.groups{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:visible;padding:2px 0 8px}
 .chips.groups .chip{text-align:center;padding:11px 8px;font-size:14px;font-weight:700;white-space:normal}
@@ -455,7 +456,7 @@ html[dir=ltr] .zbody,html[dir=ltr] .dod .txt,html[dir=ltr] .tz-phrase,html[dir=l
 html[dir=ltr] .zvirtue:not([dir=ltr]),html[dir=ltr] .zsrc:not([dir=ltr]){direction:rtl}
 html[dir=ltr] .rnav svg,html[dir=ltr] #btnBack svg{transform:scaleX(-1)}
 html[dir=ltr] body{font-family:'Tajawal',system-ui,-apple-system,'Segoe UI',sans-serif}
-html[lang=en] .prow.cur span::after{content:" • now"}
+html[lang=en] .prow.cur::after{content:"now"}
 html[dir=ltr] .fcard{min-height:150px;padding-top:44px}
 html[dir=ltr] .fcard.big{min-height:170px}
 html[dir=ltr] .fcard h3{font-size:15.5px}
@@ -513,3 +514,5 @@ html[lang=en] .rmd-it p{font-family:var(--ui);font-size:15px;line-height:1.55}
 .hcard .h-txt small{display:block;font-family:var(--ui);font-size:12.5px;color:var(--muted);margin-top:6px}
 .hcard .h-fig.noimg img{display:none}
 .hcard .h-fig.noimg .h-txt{display:block}
+.hcard .h-txt[lang=en]{font-family:Georgia,"Times New Roman",serif;font-size:calc(17px * var(--fs));line-height:1.6;text-align:center}
+.hcard .h-txt .h-ar{display:block;font-family:var(--quran);font-size:calc(18px * var(--fs));line-height:1.9;margin-top:8px}
