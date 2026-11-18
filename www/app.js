@@ -747,7 +747,8 @@ function hdToday() {   // نفس حديث اليوم في الموقع والت�
   const d = hdDay(), c = grContext(new Date());
   const act = GR.bank ? GR.bank.occ.filter(o => (String(o.hm).trim() || o.d1 || o.wd) && grActive(Object.assign({}, o, { t1: '', t2: '' }), c)).map(o => o.key) : [];
   const occ = L.filter(x => String(x.occ || '').split(/[،,\s]+/).some(k => k && act.includes(k)));
-  if (occ.length) return occ[d % occ.length].h;
+  if (occ.length >= 3) return occ[d % occ.length].h;   // مناسبة لها أحاديث كثيرة: حديثها كل يوم
+  if (occ.length && d % 2 === 0) return occ[(d / 2) % occ.length].h;   // مناسبة طويلة بحديث أو اثنين: يومًا بيوم مع العشوائي حتى لا يتكرر الحديث نفسه شهرًا
   const SEAS = /(^|,)\s*(ramadan|ramadan_start|last_ten|dhulhijja_ten|arafah|ashura|suhur|iftar)\s*(,|$)/;
   let Rr = L.filter(x => !SEAS.test(String(x.occ || ''))); if (!Rr.length) Rr = L;
   return Rr[hdPerm(Rr.length)[d % Rr.length]].h;
