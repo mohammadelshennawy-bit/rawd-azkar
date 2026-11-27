@@ -24,7 +24,8 @@ let S;
 try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { S = {}; }
 S.settings = Object.assign({ theme: 'ivory', font: 'Q1', fs: 0.95, vibrate: true, rotate: true, autoNext: true,
   showVirtue: false, showSrc: false, mode: 'scroll', showStats: true, showPrayer: true, tzAuto: true, showGreet: true, remindPopup: true, showHadith: true }, S.settings || {});
-if (!S.settings.fs20) { if (S.settings.fs === 1.15) S.settings.fs = 0.95; S.settings.fs20 = 1; }   // الحجم الافتراضي الجديد 20
+if (!S.settings.fs20) { if (S.settings.fs === 1.15) S.settings.fs = 0.95; S.settings.fs20 = 1; }
+if (!S.settings.fs20b) { S.settings.fs = 0.95; S.settings.fs20b = 1; }   // v1.11.3: الحجم الافتراضي 20 فعليًا في كل الشاشات   // الحجم الافتراضي الجديد 20
 S.fav = S.fav || []; S.counts = S.counts || {}; S.days = S.days || {};
 S.tasbih = Object.assign({ p: 0, total: 0, counts: {}, targets: {}, zfs: 1 }, S.tasbih || {});
 S.pray = Object.assign({ city: 'cairo', method: 'egypt', asr: 1, h24: false, lat: null, lng: null, tz: null, label: '' }, S.pray || {});
@@ -885,6 +886,11 @@ function renderSections() {
     <div class="feature-grid sections stagger">${DATA.map(c => featureCard(c)).join('')}</div></div>`;
   bindMode();
 }
+/* شريط اختيار المجموعة (بعد كل صلاة / بعد الفجر والمغرب): مطويّ يُظهر الاختيار الحالي فقط، ويُفتح باللمس */
+function groupBar(list, g, href) {
+  return `<details class="gbar"><summary><span class="gcur">${esc(g || list[0])}</span><span class="gchg">${tr('تغيير')} ▾</span></summary>
+    <div class="chips groups">${list.map(x => `<a class="chip ${x === g ? 'on' : ''}" href="${href(x)}">${esc(x)}</a>`).join('')}</div></details>`;
+}
 function modeSwitch(id, g) {
   const m = S.settings.mode;
   return `<div class="seg mode-seg" data-modeid="${id || ''}" data-modeg="${esc(g || '')}"><button class="${m === 'page' ? 'on' : ''}" data-mode="page">📄 صفحات</button><button class="${m === 'scroll' ? 'on' : ''}" data-mode="scroll">📜 تمرير متصل</button></div>`;
@@ -956,7 +962,7 @@ function renderSection(id, occ) {
         <button class="btn btn-ghost btn-sm" id="orderSec">↕ ترتيب الأذكار</button>
         <span class="ring-mini" id="secProg">${p.d} / ${p.n} مكتمل</span>
       </div></section>
-    ${useChips && id !== 'morning' && id !== 'evening' ? `<div class="chips ${c.groups ? 'groups' : ''}">
+    ${c.groups ? groupBar(c.groups, occ, x => `#/s/${id}?o=${encodeURIComponent(x)}`) : useChips && id !== 'morning' && id !== 'evening' ? `<div class="chips ${c.groups ? 'groups' : ''}">
       ${c.groups ? '' : `<a class="chip ${!occ ? 'on' : ''}" href="#/s/${id}">الكل</a>`}
       ${occs.map(o => `<a class="chip ${o === occ ? 'on' : ''}" href="#/s/${id}?o=${encodeURIComponent(o)}">${esc(o)}</a>`).join('')}</div>` : ''}
     <div class="stagger">${list.map((it, k) => zcard(it, c.groups || custom ? k + 1 : it.idx + 1, { hideOcc: id === 'morning' || id === 'evening' || !!c.groups })).join('')}</div>
@@ -1085,7 +1091,7 @@ function renderReader(id, i, occ) {
   const lk = id + (g ? '|' + g : ''); if (renderReader._last && renderReader._last.id !== lk) { /* new list */ }
   renderReader._last = { id: lk, i }; S.last = { cat: id, i, g }; S.lastPos[lk] = i; save();
   view.innerHTML = `<div class="wrap reader">
-    ${c0.groups ? `<div class="chips groups">${c0.groups.map(x => `<a class="chip ${x === g ? 'on' : ''}" href="#/r/${id}/${S.lastPos[id + '|' + x] || 0}${qs(x)}">${esc(x)}</a>`).join('')}</div>` : ''}
+    ${c0.groups ? groupBar(c0.groups, g, x => `#/r/${id}/${S.lastPos[id + '|' + x] || 0}${qs(x)}`) : ''}
     <div class="rprog"><i style="width:${(i + 1) / c.items.length * 100}%"></i></div>
     <article class="glass reader-card ${dir}" id="rcard">
       ${it.o && !c0.groups && id !== 'morning' && id !== 'evening' ? `<div class="zocc">${esc(it.o)}</div>` : ''}
