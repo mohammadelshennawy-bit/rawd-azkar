@@ -1086,16 +1086,13 @@ function renderReader(id, i, occ) {
   renderReader._last = { id: lk, i }; S.last = { cat: id, i, g }; S.lastPos[lk] = i; save();
   view.innerHTML = `<div class="wrap reader">
     ${c0.groups ? `<div class="chips groups">${c0.groups.map(x => `<a class="chip ${x === g ? 'on' : ''}" href="#/r/${id}/${S.lastPos[id + '|' + x] || 0}${qs(x)}">${esc(x)}</a>`).join('')}</div>` : ''}
-    <div class="rinfo"><span class="r-occ">${esc(c.name)}</span>
-      <span class="fsctl"><button id="fsMinus" aria-label="تصغير الخط">A−</button><button id="fsPlus" aria-label="تكبير الخط">A+</button><button id="toScroll" title="تمرير متصل">📜</button></span>
-      <span>${i + 1} / ${c.items.length}</span></div>
     <div class="rprog"><i style="width:${(i + 1) / c.items.length * 100}%"></i></div>
     <article class="glass reader-card ${dir}" id="rcard">
       ${it.o && !c0.groups && id !== 'morning' && id !== 'evening' ? `<div class="zocc">${esc(it.o)}</div>` : ''}
       <div class="zbody">${esc(clean(it.t))}</div>${xlHtml(it)}
       <div class="zextra">${extraHtml(it)}</div>
       <div class="zfoot">
-        <span class="zno">${i + 1}</span>
+        <span class="zno">${i + 1} / ${c.items.length}</span>
         <button class="zact ${S.fav.includes(it.id) ? 'fav-on' : ''}" data-fav="${it.id}" aria-label="مفضلة">${ICON.fav}</button>
         <button class="zact" data-copy="${it.id}" aria-label="نسخ">${ICON.copy}</button>
         <button class="zact" data-share="${it.id}" aria-label="مشاركة">${ICON.share}</button>
@@ -1110,8 +1107,6 @@ function renderReader(id, i, occ) {
     </div>
     <div class="reader-tools"><button class="btn btn-ghost btn-sm" id="resetSec">↺ تصفير الباب</button></div></div>`;
   const go = k => { if (k >= 0 && k < c.items.length) { replaceNav(`#/r/${id}/${k}${Q}`); renderReader(id, k, g); view.scrollTop = 0; } };
-  $('#fsMinus').onclick = () => setFs(-0.1); $('#fsPlus').onclick = () => setFs(0.1);
-  $('#toScroll').onclick = () => setMode('scroll', id, g);
   $('#resetSec').onclick = () => { if (resetCat(id)) { renderReader._last = null; go(0); } };
   $('#rPrev').onclick = () => go(i - 1);
   $('#rNext').onclick = () => go(i + 1);

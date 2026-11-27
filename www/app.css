@@ -516,3 +516,12 @@ html[lang=en] .rmd-it p{font-family:var(--ui);font-size:15px;line-height:1.55}
 .hcard .h-fig.noimg .h-txt{display:block}
 .hcard .h-txt[lang=en]{font-family:Georgia,"Times New Roman",serif;font-size:calc(17px * var(--fs));line-height:1.6;text-align:center}
 .hcard .h-txt .h-ar{display:block;font-family:var(--quran);font-size:calc(18px * var(--fs));line-height:1.9;margin-top:8px}
+
+/* v1.11.3 — إزالة شريط الخط/الوضع من شاشة القراءة وتوسيع مساحة النص */
+.reader{gap:6px}
+.reader .rprog{height:3px;margin:0 6px}
+.reader-card{min-height:0;padding:10px 10px 4px}
+.reader-card .zno{white-space:nowrap;padding:0 8px}
+.reader-nav .big-count{height:58px}
+.reader-nav .rnav{width:52px;height:52px}
+.reader-tools{margin-top:0}
